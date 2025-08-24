@@ -56,5 +56,6 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 def add_error_handlers(app: FastAPI):
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(Exception, general_exception_handler)
