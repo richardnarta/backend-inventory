@@ -37,6 +37,20 @@ services:
     # exposed to the host machine, but is still accessible to the 
     # 'backend' service via the service name 'db'.
 
+  alembic:
+    build: .
+    container_name: alembic-migration
+    environment:
+      - POSTGRES_SERVER=postgres
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ['alembic', 'upgrade', 'head']
+    profiles:
+      - migration
+
 # Define the named volume for data persistence
 volumes:
   postgres_data:
