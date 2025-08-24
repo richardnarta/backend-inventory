@@ -61,6 +61,16 @@ def create_application() -> FastAPI:
             "environment": "development" if settings.DEBUG else "production"
         }
         
+    @app.get("/v1", tags=["System"])
+    async def root():
+        """Version API information."""
+        return {
+            "message": f"Welcome to {settings.PROJECT_NAME}",
+            "version": settings.VERSION,
+            "documentation": "/docs" if settings.DEBUG else "Documentation disabled in production",
+            "environment": "development" if settings.DEBUG else "production"
+        }
+        
     return app
     
 # Create application instance
