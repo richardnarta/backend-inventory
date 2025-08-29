@@ -19,7 +19,7 @@ router = APIRouter()
 
 # --- API Endpoints ---
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=SingleBuyerResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleBuyerResponse)
 async def create_buyer(
     request_data: BuyerCreateRequest,
     service: BuyerService = Depends(get_buyer_service)
@@ -29,7 +29,7 @@ async def create_buyer(
     """
     return await service.create(request_data)
 
-@router.get("/", response_model=BulkBuyerResponse)
+@router.get("", response_model=BulkBuyerResponse)
 async def get_all_buyers(
     name: Optional[str] = Query(None, description="Filter by buyer name (case-insensitive)"),
     page: int = Query(1, ge=1, description="Page number"),

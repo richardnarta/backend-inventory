@@ -18,7 +18,7 @@ router = APIRouter()
 
 # --- API Endpoints ---
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=SingleAccountReceivableResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleAccountReceivableResponse)
 async def create_receivable(
     request_data: AccountReceivableCreateRequest,
     service: AccountReceivableService = Depends(get_receivable_service)
@@ -28,7 +28,7 @@ async def create_receivable(
     """
     return await service.create(request_data)
 
-@router.get("/", response_model=BulkAccountReceivableResponse)
+@router.get("", response_model=BulkAccountReceivableResponse)
 async def get_all_receivables(
     buyer_id: Optional[int] = Query(None, description="Filter by buyer ID"),
     period: Optional[str] = Query(None, description="Filter by period (e.g., 'Apr-25')"),

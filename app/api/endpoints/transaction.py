@@ -20,7 +20,7 @@ router = APIRouter()
 
 # --- API Endpoints ---
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=SingleSalesTransactionResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleSalesTransactionResponse)
 async def create_transaction(
     request_data: SalesTransactionCreateRequest,
     service: SalesTransactionService = Depends(get_transaction_service)
@@ -30,7 +30,7 @@ async def create_transaction(
     """
     return await service.create(request_data)
 
-@router.get("/", response_model=BulkSalesTransactionResponse)
+@router.get("", response_model=BulkSalesTransactionResponse)
 async def get_all_transactions(
     buyer_id: Optional[int] = Query(None, description="Filter by buyer ID"),
     inventory_id: Optional[str] = Query(None, description="Filter by inventory ID"),

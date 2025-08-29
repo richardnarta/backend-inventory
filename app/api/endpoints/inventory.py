@@ -19,7 +19,7 @@ router = APIRouter()
 
 # --- API Endpoints ---
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=SingleInventoryResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleInventoryResponse)
 async def create_inventory_item(
     request_data: InventoryCreateRequest,
     service: InventoryService = Depends(get_inventory_service)
@@ -29,7 +29,7 @@ async def create_inventory_item(
     """
     return await service.create(request_data)
 
-@router.get("/", response_model=BulkInventoryResponse)
+@router.get("", response_model=BulkInventoryResponse)
 async def get_all_inventory_items(
     name: Optional[str] = Query(None, description="Filter by item name (case-insensitive)"),
     page: int = Query(1, ge=1, description="Page number"),
