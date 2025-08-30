@@ -43,6 +43,7 @@ class InventoryRepository:
     async def get_all(
         self, 
         name: Optional[str] = None,
+        id: Optional[str] = None,
         page: int = 1,
         limit: int = 10
     ) -> Tuple[List[Inventory], int]:
@@ -62,6 +63,9 @@ class InventoryRepository:
         
         if name:
             query = query.where(Inventory.name.ilike(f"%{name}%"))
+            
+        if id:
+            query = query.where(Inventory.id.ilike(f"%{id}%"))
             
         count_query = select(func.count()).select_from(query.subquery())
         total_count_result = await self.session.execute(count_query)

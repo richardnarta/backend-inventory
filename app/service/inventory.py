@@ -18,11 +18,11 @@ class InventoryService:
     def __init__(self, inventory_repo: InventoryRepository):
         self.inventory_repo = inventory_repo
 
-    async def get_all(self, name: Optional[str], page: int, limit: int) -> BulkInventoryResponse:
+    async def get_all(self, name: Optional[str], id: Optional[str], page: int, limit: int) -> BulkInventoryResponse:
         """
         Retrieves a paginated list of inventory items and formats the response.
         """
-        items, total_count = await self.inventory_repo.get_all(name=name, page=page, limit=limit)
+        items, total_count = await self.inventory_repo.get_all(name=name, id=id, page=page, limit=limit)
         total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
         
         return BulkInventoryResponse(
