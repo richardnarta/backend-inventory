@@ -15,7 +15,7 @@ load_dotenv()
 
 from app.model.buyer import Buyer
 from app.model.account_receivable import AccountReceivable
-from app.model.transaction import SalesTransaction
+from app.model.sales_transaction import SalesTransaction
 from app.model.inventory import Inventory
 
 # this is the Alembic Config object, which provides

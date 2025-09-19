@@ -2,7 +2,7 @@ from typing import Optional, Dict, Any
 from datetime import date
 from fastapi import HTTPException, status
 
-from app.repository.transaction import SalesTransactionRepository
+from app.repository.sales_transaction import SalesTransactionRepository
 from app.repository.buyer import BuyerRepository
 from app.repository.inventory import InventoryRepository
 # The Pydantic request models

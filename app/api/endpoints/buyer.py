@@ -33,7 +33,7 @@ async def create_buyer(
 async def get_all_buyers(
     name: Optional[str] = Query(None, description="Filter by buyer name (case-insensitive)"),
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(10, ge=1, le=100, description="Items per page"),
+    limit: int = Query(10, ge=1, le=9999, description="Items per page"),
     service: BuyerService = Depends(get_buyer_service)
 ):
     """

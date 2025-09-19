@@ -1,6 +1,13 @@
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
-from .transaction import SalesTransaction
+from sqlalchemy import Column, Enum as SQLAlchemyEnum
+from .sales_transaction import SalesTransaction
+from enum import Enum
+
+
+class InventoryType(str, Enum):
+    FABRIC = "fabric"
+    THREAD = "thread"
 
 
 class Inventory(SQLModel, table=True):
@@ -18,6 +25,10 @@ class Inventory(SQLModel, table=True):
         index=True,
         description="Name of the inventory item"
     )
+    type: InventoryType = Field(
+        sa_column=Column(SQLAlchemyEnum(InventoryType), index=True),
+        description="Type of the inventory item"
+    )
     
     # Stock levels
     roll_count: Optional[int] = Field(
@@ -33,7 +44,7 @@ class Inventory(SQLModel, table=True):
         description="Stock level in bales"
     )
 
-    price_per_kg: int = Field(
+    price_per_kg: Optional[float] = Field(
         default=0,
         description="Unit price of the item"
     )
@@ -47,4 +58,7 @@ class Inventory(SQLModel, table=True):
             return self.weight_kg * self.price_per_kg
         return 0.0
     
-    sales: List["SalesTransaction"] = Relationship(back_populates="inventory")
+    sales: List["SalesTransaction"] = Relationship(
+        back_populates="inventory",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )

@@ -4,6 +4,7 @@ from .base import BaseListResponse, BaseSingleResponse
 class InventoryData(BaseModel):
     id: str
     name: str
+    type: str
     roll_count: int
     weight_kg: float
     bale_count: int

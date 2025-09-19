@@ -1,5 +1,5 @@
 from typing import List, Optional, Tuple, Dict, Any
-from sqlalchemy import select, func
+from sqlalchemy import select, func, asc
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,14 +39,14 @@ class AccountReceivableRepository:
             An AccountReceivable object if found, otherwise None.
         """
         # Create a select statement with the eager loading option
-        statement = (
+        query = (
             select(AccountReceivable)
             .where(AccountReceivable.id == receivable_id)
             .options(selectinload(AccountReceivable.buyer))  # Assuming the relationship is named 'buyer'
         )
         
-        # Execute the statement
-        result = await self.session.exec(statement)
+        # Execute the query
+        result = await self.session.execute(query)
         
         # Get the Row object
         receivable_row = result.one_or_none()
@@ -56,7 +56,7 @@ class AccountReceivableRepository:
 
     async def get_all(
         self, 
-        buyer_id: Optional[int] = None,
+        buyer_id: Optional[str] = None,
         period: Optional[str] = None,
         page: int = 1,
         limit: int = 10
@@ -68,10 +68,12 @@ class AccountReceivableRepository:
         query = select(AccountReceivable)
         
         # Apply filters
-        if buyer_id is not None:
+        if buyer_id:
             query = query.where(AccountReceivable.buyer_id == buyer_id)
-        if period is not None:
+        if period:
             query = query.where(AccountReceivable.period == period)
+            
+        query = query.order_by(asc(AccountReceivable.id))
             
         # This count query is efficient and does not need to change
         count_query = select(func.count()).select_from(query.subquery())
@@ -80,13 +82,10 @@ class AccountReceivableRepository:
         
         offset = (page - 1) * limit
         
-        # --- FIX IS HERE ---
-        # Add the selectinload option to the final paginated query
-        # to eagerly load the buyer relationship.
         paginated_query = (
             query.offset(offset)
             .limit(limit)
-            .options(selectinload(AccountReceivable.buyer)) # Assuming the relationship is named 'buyer'
+            .options(selectinload(AccountReceivable.buyer))
         )
         
         result = await self.session.execute(paginated_query)

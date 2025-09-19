@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.api.endpoints.inventory import router as inventory
 from app.api.endpoints.buyer import router as buyer
-from app.api.endpoints.transaction import router as transaction
+from app.api.endpoints.sales_transaction import router as transaction
 from app.api.endpoints.account_receivable import router as receivable
 
 # Create main API router

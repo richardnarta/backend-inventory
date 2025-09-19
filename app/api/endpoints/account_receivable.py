@@ -30,7 +30,7 @@ async def create_receivable(
 
 @router.get("", response_model=BulkAccountReceivableResponse)
 async def get_all_receivables(
-    buyer_id: Optional[int] = Query(None, description="Filter by buyer ID"),
+    buyer_id: Optional[str] = Query(None, description="Filter by buyer ID"),
     period: Optional[str] = Query(None, description="Filter by period (e.g., 'Apr-25')"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(10, ge=1, le=100, description="Items per page"),

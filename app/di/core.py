@@ -12,8 +12,8 @@ from app.service.buyer import BuyerService
 from app.repository.inventory import InventoryRepository
 from app.service.inventory import InventoryService
 
-from app.repository.transaction import SalesTransactionRepository
-from app.service.transaction import SalesTransactionService
+from app.repository.sales_transaction import SalesTransactionRepository
+from app.service.sales_transaction import SalesTransactionService
 
 
 def get_inventory_repo(session: AsyncSession = Depends(get_db)) -> InventoryRepository:

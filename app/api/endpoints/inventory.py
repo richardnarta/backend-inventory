@@ -33,14 +33,15 @@ async def create_inventory_item(
 async def get_all_inventory_items(
     name: Optional[str] = Query(None, description="Filter by item name (case-insensitive)"),
     id: Optional[str] = Query(None, description="Filter by item id (case-insensitive)"),
+    type: Optional[str] = Query(None, description="Filter by item type (thread/fabric)"),
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(10, ge=1, le=100, description="Items per page"),
+    limit: int = Query(10, ge=1, le=9999, description="Items per page"),
     service: InventoryService = Depends(get_inventory_service)
 ):
     """
     Retrieve a paginated list of all inventory items.
     """
-    return await service.get_all(name=name, id=id, page=page, limit=limit)
+    return await service.get_all(name=name, id=id, type=type, page=page, limit=limit)
 
 @router.get("/{item_id}", response_model=SingleInventoryResponse)
 async def get_inventory_item_by_id(

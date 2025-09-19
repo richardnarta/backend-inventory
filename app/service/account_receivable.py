@@ -25,7 +25,7 @@ class AccountReceivableService:
 
     async def get_all(
         self, 
-        buyer_id: Optional[int], 
+        buyer_id: Optional[str], 
         period: Optional[str], 
         page: int, 
         limit: int
@@ -33,6 +33,10 @@ class AccountReceivableService:
         """
         Retrieves a paginated list of account receivables and formats the response.
         """
+        try:
+            buyer_id = int(buyer_id)
+        except:
+            buyer_id = None
         items, total_count = await self.receivable_repo.get_all(
             buyer_id=buyer_id,
             period=period,
@@ -96,7 +100,6 @@ class AccountReceivableService:
             
         update_dict = data.model_dump(exclude_unset=True)
         
-        # Check fk availability
         buyer = await self.buyer_repo.get_by_id(update_dict.get('buyer_id'))
         if not buyer:
             raise HTTPException(

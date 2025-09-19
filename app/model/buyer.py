@@ -1,6 +1,6 @@
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
-from .transaction import SalesTransaction
+from .sales_transaction import SalesTransaction
 
 if TYPE_CHECKING:
     from .account_receivable import AccountReceivable
@@ -31,5 +31,11 @@ class Buyer(SQLModel, table=True):
         description="Contact phone number for the customer"
     )
     
-    sales: List["SalesTransaction"] = Relationship(back_populates="buyer")
-    receivables: List["AccountReceivable"] = Relationship(back_populates="buyer")
+    sales: List["SalesTransaction"] = Relationship(
+        back_populates="buyer",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    receivables: List["AccountReceivable"] = Relationship(
+        back_populates="buyer",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )

@@ -52,11 +52,4 @@ class AccountReceivable(SQLModel, table=True):
         description="Receivable amount aged over 90 days"
     )
 
-    buyer: "Buyer" = Relationship(
-        back_populates="receivables",
-        sa_relationship_kwargs={
-            "cascade": "all, delete",
-            "passive_deletes": True
-        }
-    )
-
+    buyer: "Buyer" = Relationship(back_populates="receivables")

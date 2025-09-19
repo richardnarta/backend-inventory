@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.model.transaction import SalesTransaction
+from app.model.sales_transaction import SalesTransaction
 
 class SalesTransactionRepository:
     """Repository for all sales transaction-related database operations."""
@@ -83,6 +83,8 @@ class SalesTransactionRepository:
         if end_date is not None:
             from sqlalchemy import cast, Date
             query = query.where(cast(SalesTransaction.transaction_date, Date) <= end_date)
+            
+        query = query.order_by(SalesTransaction.transaction_date)
             
         # This count query remains unchanged and is efficient
         count_query = select(func.count()).select_from(query.subquery())

@@ -3,7 +3,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, status, Query
 
 # --- Dependency Imports ---
-from app.service.transaction import SalesTransactionService
+from app.service.sales_transaction import SalesTransactionService
 from app.di.core import get_transaction_service
 
 # --- Pydantic Schema Imports ---
@@ -20,8 +20,8 @@ router = APIRouter()
 
 # --- API Endpoints ---
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleSalesTransactionResponse)
-async def create_transaction(
+@router.post("/sales", status_code=status.HTTP_201_CREATED, response_model=SingleSalesTransactionResponse)
+async def create_sales_transaction(
     request_data: SalesTransactionCreateRequest,
     service: SalesTransactionService = Depends(get_transaction_service)
 ):
@@ -30,8 +30,8 @@ async def create_transaction(
     """
     return await service.create(request_data)
 
-@router.get("", response_model=BulkSalesTransactionResponse)
-async def get_all_transactions(
+@router.get("/sales", response_model=BulkSalesTransactionResponse)
+async def get_all_sales_sales_transactions(
     buyer_id: Optional[int] = Query(None, description="Filter by buyer ID"),
     inventory_id: Optional[str] = Query(None, description="Filter by inventory ID"),
     start_date: Optional[date] = Query(None, description="Filter by start date"),
@@ -48,8 +48,8 @@ async def get_all_transactions(
         end_date=end_date, page=page, limit=limit
     )
 
-@router.get("/{transaction_id}", response_model=SingleSalesTransactionResponse)
-async def get_transaction_by_id(
+@router.get("/sales/{transaction_id}", response_model=SingleSalesTransactionResponse)
+async def get_sales_transaction_by_id(
     transaction_id: int,
     service: SalesTransactionService = Depends(get_transaction_service)
 ):
@@ -58,8 +58,8 @@ async def get_transaction_by_id(
     """
     return await service.get_by_id(transaction_id)
 
-@router.put("/{transaction_id}", response_model=SingleSalesTransactionResponse)
-async def update_transaction(
+@router.put("/sales/{transaction_id}", response_model=SingleSalesTransactionResponse)
+async def update_sales_transaction(
     transaction_id: int,
     request_data: SalesTransactionUpdateRequest,
     service: SalesTransactionService = Depends(get_transaction_service)
@@ -69,8 +69,8 @@ async def update_transaction(
     """
     return await service.update(transaction_id, request_data)
 
-@router.delete("/{transaction_id}", response_model=BaseSingleResponse)
-async def delete_transaction(
+@router.delete("/sales/{transaction_id}", response_model=BaseSingleResponse)
+async def delete_sales_transaction(
     transaction_id: int,
     service: SalesTransactionService = Depends(get_transaction_service)
 ):

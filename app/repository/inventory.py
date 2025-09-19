@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.model.inventory import Inventory
+from app.model.inventory import Inventory, InventoryType
 
 
 class InventoryRepository:
@@ -44,6 +44,7 @@ class InventoryRepository:
         self, 
         name: Optional[str] = None,
         id: Optional[str] = None,
+        type: Optional[str] = None,
         page: int = 1,
         limit: int = 10
     ) -> Tuple[List[Inventory], int]:
@@ -66,7 +67,11 @@ class InventoryRepository:
             
         if id:
             query = query.where(Inventory.id.ilike(f"%{id}%"))
-            
+        
+        if type in {member.value for member in InventoryType}:
+            query = query.where(Inventory.type == type.upper())
+        
+        query = query.order_by(Inventory.name.asc())
         count_query = select(func.count()).select_from(query.subquery())
         total_count_result = await self.session.execute(count_query)
         total_count = total_count_result.scalar_one()

@@ -56,17 +56,5 @@ class SalesTransaction(SQLModel, table=True):
         description="Unit price at the time of sale. Copied from Inventory for historical accuracy."
     )
     
-    buyer: "Buyer" = Relationship(
-        back_populates="sales",
-        sa_relationship_kwargs={
-            "cascade": "all, delete",
-            "passive_deletes": True
-        }
-    )
-    inventory: "Inventory" = Relationship(
-        back_populates="sales",
-        sa_relationship_kwargs={
-            "cascade": "all, delete",
-            "passive_deletes": True
-        }
-    )
+    buyer: "Buyer" = Relationship(back_populates="sales")
+    inventory: "Inventory" = Relationship(back_populates="sales")
