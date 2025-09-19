@@ -46,7 +46,7 @@ services:
     environment:
       - POSTGRES_SERVER=postgres
     env_file:
-      - .env
+      - ./.env
     depends_on:
       db:
         condition: service_healthy
