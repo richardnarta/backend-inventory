@@ -43,8 +43,6 @@ services:
   alembic:
     build: .
     container_name: alembic-migration
-    environment:
-      - POSTGRES_SERVER=postgres
     env_file:
       - ./.env
     depends_on:
