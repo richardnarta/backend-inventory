@@ -16,7 +16,7 @@ class Buyer(SQLModel, table=True):
     id: Optional[int] = Field(
         default=None, 
         primary_key=True,
-        description="Auto-incrementing primary key for the transaction"
+        description="Auto-incrementing primary key for the buyer"
     )
 
     # Customer details

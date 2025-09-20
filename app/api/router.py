@@ -4,6 +4,7 @@ from app.api.endpoints.inventory import router as inventory
 from app.api.endpoints.buyer import router as buyer
 from app.api.endpoints.sales_transaction import router as transaction
 from app.api.endpoints.account_receivable import router as receivable
+from app.api.endpoints.supplier import router as supplier
 
 # Create main API router
 api_router = APIRouter()
@@ -46,6 +47,18 @@ api_router.include_router(
 
 
 api_router.include_router(
+    supplier,
+    prefix="/supplier",
+    tags=["Supplier"],
+    responses={
+        404: {"description": "Not Found Error"},
+        422: {"description": "Validation Error"},
+        500: {"description": "Internal Server Error"},
+    }
+)
+
+
+api_router.include_router(
     receivable,
     prefix="/acc-receivable",
     tags=["Account Receivable"],
@@ -55,7 +68,6 @@ api_router.include_router(
         500: {"description": "Internal Server Error"},
     }
 )
-
 
 def get_api_router():
     """Get configured API router dengan semua endpoints."""

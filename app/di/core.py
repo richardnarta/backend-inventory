@@ -15,6 +15,9 @@ from app.service.inventory import InventoryService
 from app.repository.sales_transaction import SalesTransactionRepository
 from app.service.sales_transaction import SalesTransactionService
 
+from app.repository.supplier import SupplierRepository
+from app.service.supplier import SupplierService
+
 
 def get_inventory_repo(session: AsyncSession = Depends(get_db)) -> InventoryRepository:
     """Dependency to provide an InventoryRepository instance."""
@@ -57,3 +60,12 @@ def get_transaction_service(
 ) -> SalesTransactionService:
     """Dependency to provide a SalesTransactionService instance."""
     return SalesTransactionService(repo, buyer_repo, inventory_repo)
+
+
+def get_supplier_repo(session: AsyncSession = Depends(get_db)) -> SupplierRepository:
+    """Dependency to provide a SupplierRepository instance."""
+    return SupplierRepository(session)
+
+def get_supplier_service(repo: SupplierRepository = Depends(get_supplier_repo)) -> SupplierService:
+    """Dependency to provide a SupplierService instance."""
+    return SupplierService(repo)
