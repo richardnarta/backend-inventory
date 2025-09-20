@@ -56,5 +56,23 @@ class PurchaseTransaction(SQLModel, table=True):
         description="Unit price at the time of sale. Copied from Inventory for historical accuracy."
     )
     
+    dye_overhead_cost: Optional[float] = Field(
+        default=0.0,
+        description="Overhead costs associated with the dyeing process"
+    )
+    dye_final_weight: Optional[float] = Field(
+        default=0.0,
+        description="The final weight of the material after the dyeing process"
+    )
+    dye_price_per_kg: Optional[float] = Field(
+        default=0.0,
+        description="The final calculated price per kg after processing"
+    )
+    dye_status: bool = Field(
+        default=False,
+        index=True,
+        description="The current status of the dyeing process"
+    )
+    
     supplier: "Supplier" = Relationship(back_populates="purchases")
     inventory: "Inventory" = Relationship(back_populates="purchases")

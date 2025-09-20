@@ -19,3 +19,7 @@ class PurchaseTransactionUpdateRequest(BaseModel):
     roll_count: Optional[float] = Field(None, ge=0)
     weight_kg: Optional[float] = Field(None, ge=0)
     price_per_kg: Optional[float] = Field(None, ge=0)
+    dye_overhead_cost: Optional[float] = Field(None, ge=0)
+    dye_final_weight: Optional[float] = Field(None, ge=0)
+    dye_price_per_kg: Optional[float] = Field(None, ge=0)
+    dye_status: Optional[bool] = None

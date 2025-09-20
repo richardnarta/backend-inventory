@@ -66,6 +66,7 @@ class PurchaseTransactionRepository:
         inventory_id: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
+        dyed: Optional[bool] = None,
         page: int = 1,
         limit: int = 10
     ) -> Tuple[List[PurchaseTransaction], int]:
@@ -87,6 +88,8 @@ class PurchaseTransactionRepository:
         if end_date is not None:
             from sqlalchemy import cast, Date
             query = query.where(cast(PurchaseTransaction.transaction_date, Date) <= end_date)
+        if dyed is not None:
+            query = query.where(PurchaseTransaction.dye_status == dyed)
             
         query = query.order_by(PurchaseTransaction.transaction_date)
             

@@ -35,6 +35,7 @@ async def get_all_purchase_transactions(
     inventory_id: Optional[str] = Query(None, description="Filter by inventory ID"),
     start_date: Optional[date] = Query(None, description="Filter by start date"),
     end_date: Optional[date] = Query(None, description="Filter by end date"),
+    dyed: Optional[bool] = Query(None, description="Filter by dyeing status"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(10, ge=1, le=100, description="Items per page"),
     service: PurchaseTransactionService = Depends(get_purchase_service)
@@ -44,7 +45,7 @@ async def get_all_purchase_transactions(
     """
     return await service.get_all(
         supplier_id=supplier_id, inventory_id=inventory_id, start_date=start_date,
-        end_date=end_date, page=page, limit=limit
+        end_date=end_date, dyed=dyed, page=page, limit=limit
     )
 
 @router.get("/purchase/{transaction_id}", response_model=SinglePurchaseTransactionResponse)

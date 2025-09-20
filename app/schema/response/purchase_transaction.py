@@ -13,6 +13,10 @@ class PurchaseTransactionData(BaseModel):
     roll_count: int
     weight_kg: float
     price_per_kg: int
+    dye_overhead_cost: Optional[float] = None
+    dye_final_weight: Optional[float] = None
+    dye_price_per_kg: Optional[float] = None
+    dye_status: bool
     
     @computed_field
     @property

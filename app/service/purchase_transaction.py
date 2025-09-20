@@ -33,6 +33,7 @@ class PurchaseTransactionService:
         inventory_id: Optional[str], 
         start_date: Optional[date], 
         end_date: Optional[date],
+        dyed: Optional[bool],
         page: int, 
         limit: int
     ) -> BulkPurchaseTransactionResponse:
@@ -44,6 +45,7 @@ class PurchaseTransactionService:
             inventory_id=inventory_id,
             start_date=start_date,
             end_date=end_date,
+            dyed=dyed,
             page=page, 
             limit=limit
         )
