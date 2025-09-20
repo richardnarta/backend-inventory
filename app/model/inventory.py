@@ -1,9 +1,12 @@
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, Enum as SQLAlchemyEnum
 from .sales_transaction import SalesTransaction
 from .purchase_transaction import PurchaseTransaction
 from enum import Enum
+
+if TYPE_CHECKING:
+    from .machine_activity import MachineActivity
 
 
 class InventoryType(str, Enum):
@@ -67,3 +70,5 @@ class Inventory(SQLModel, table=True):
         back_populates="inventory",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
+    
+    machine_activities: List["MachineActivity"] = Relationship(back_populates="inventory")

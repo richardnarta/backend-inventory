@@ -6,6 +6,8 @@ from app.api.endpoints.sales_transaction import router as transaction
 from app.api.endpoints.account_receivable import router as receivable
 from app.api.endpoints.supplier import router as supplier
 from app.api.endpoints.purchase_transaction import router as purchase
+from app.api.endpoints.machine import router as machine
+from app.api.endpoints.machine_activity import router as machine_activity
 
 # Create main API router
 api_router = APIRouter()
@@ -75,6 +77,28 @@ api_router.include_router(
     receivable,
     prefix="/acc-receivable",
     tags=["Account Receivable"],
+    responses={
+        404: {"description": "Not Found Error"},
+        422: {"description": "Validation Error"},
+        500: {"description": "Internal Server Error"},
+    }
+)
+
+api_router.include_router(
+    machine,
+    prefix="/machine",
+    tags=["Machine"],
+    responses={
+        404: {"description": "Not Found Error"},
+        422: {"description": "Validation Error"},
+        500: {"description": "Internal Server Error"},
+    }
+)
+
+api_router.include_router(
+    machine_activity,
+    prefix="/machine-activity",
+    tags=["Machine Activity"],
     responses={
         404: {"description": "Not Found Error"},
         422: {"description": "Validation Error"},

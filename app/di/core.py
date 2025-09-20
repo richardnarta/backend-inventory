@@ -21,6 +21,12 @@ from app.service.supplier import SupplierService
 from app.repository.purchase_transaction import PurchaseTransactionRepository
 from app.service.purchase_transaction import PurchaseTransactionService
 
+from app.repository.machine import MachineRepository
+from app.service.machine import MachineService
+
+from app.repository.machine_activity import MachineActivityRepository
+from app.service.machine_activity import MachineActivityService
+
 
 def get_inventory_repo(session: AsyncSession = Depends(get_db)) -> InventoryRepository:
     """Dependency to provide an InventoryRepository instance."""
@@ -85,3 +91,21 @@ def get_purchase_service(
 ) -> PurchaseTransactionService:
     """Dependency to provide a PurchaseTransactionService instance."""
     return PurchaseTransactionService(repo, supplier_repo, inventory_repo)
+
+
+def get_machine_repo(session: AsyncSession = Depends(get_db)) -> MachineRepository:
+    return MachineRepository(session)
+
+def get_machine_service(repo: MachineRepository = Depends(get_machine_repo)) -> MachineService:
+    return MachineService(repo)
+
+
+def get_machine_activity_repo(session: AsyncSession = Depends(get_db)) -> MachineActivityRepository:
+    return MachineActivityRepository(session)
+
+def get_machine_activity_service(
+    repo: MachineActivityRepository = Depends(get_machine_activity_repo),
+    inventory_repo: InventoryRepository = Depends(get_inventory_repo),
+    machine_repo: MachineRepository = Depends(get_machine_repo)
+) -> MachineActivityService:
+    return MachineActivityService(repo, inventory_repo, machine_repo)
