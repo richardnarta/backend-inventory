@@ -5,34 +5,34 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, time
 
-from app.model.sales_transaction import SalesTransaction
+from app.model.purchase_transaction import PurchaseTransaction
 
-class SalesTransactionRepository:
-    """Repository for all sales transaction-related database operations."""
+class PurchaseTransactionRepository:
+    """Repository for all purchase transaction-related database operations."""
     
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create(self, data: Dict[str, Any]) -> SalesTransaction:
+    async def create(self, data: Dict[str, Any]) -> PurchaseTransaction:
         """
-        Prepares a new sales transaction for creation.
+        Prepares a new purchase transaction for creation.
         The commit is handled by the session's lifecycle manager.
         
         Args:
             data: A dictionary containing the data for the new transaction.
                   
         Returns:
-            The new SalesTransaction object, not yet committed.
+            The new PurchaseTransaction object, not yet committed.
         """
         transaction_date_obj = data.pop("transaction_date")
         transaction_datetime = datetime.combine(transaction_date_obj, time.min)
         
-        new_transaction = SalesTransaction(**data, transaction_date=transaction_datetime)
+        new_transaction = PurchaseTransaction(**data, transaction_date=transaction_datetime)
         self.session.add(new_transaction)
         await self.session.flush()
         return new_transaction
 
-    async def get_by_id(self, transaction_id: int) -> Optional[SalesTransaction]:
+    async def get_by_id(self, transaction_id: int) -> Optional[PurchaseTransaction]:
         """
         Retrieves a single transaction by its primary key.
         
@@ -40,15 +40,15 @@ class SalesTransactionRepository:
             transaction_id: The unique ID of the transaction.
             
         Returns:
-            A SalesTransaction object if found, otherwise None.
+            A PurchaseTransaction object if found, otherwise None.
         """
         query = (
-            select(SalesTransaction)
-            .where(SalesTransaction.id == transaction_id)
+            select(PurchaseTransaction)
+            .where(PurchaseTransaction.id == transaction_id)
             # Add the eager loading options
             .options(
-                selectinload(SalesTransaction.buyer),
-                selectinload(SalesTransaction.inventory)
+                selectinload(PurchaseTransaction.supplier),
+                selectinload(PurchaseTransaction.inventory)
             )
         )
         # Execute the query
@@ -56,39 +56,39 @@ class SalesTransactionRepository:
         # Return the single result, or None if not found
         transaction_row = result.one_or_none()
     
-        # If the row exists, return the first element (the SalesTransaction object)
+        # If the row exists, return the first element (the PurchaseTransaction object)
         # Otherwise, return None
         return transaction_row[0] if transaction_row else None
 
     async def get_all(
         self, 
-        buyer_id: Optional[int] = None,
+        supplier_id: Optional[int] = None,
         inventory_id: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         page: int = 1,
         limit: int = 10
-    ) -> Tuple[List[SalesTransaction], int]:
+    ) -> Tuple[List[PurchaseTransaction], int]:
         """
         Retrieves a paginated list of transactions with optional filtering,
-        eagerly loading related buyer and inventory data.
+        eagerly loading related supplier and inventory data.
         """
-        query = select(SalesTransaction)
+        query = select(PurchaseTransaction)
         
         # Apply filters
-        if buyer_id is not None:
-            query = query.where(SalesTransaction.buyer_id == buyer_id)
+        if supplier_id is not None:
+            query = query.where(PurchaseTransaction.supplier_id == supplier_id)
         if inventory_id is not None:
-            query = query.where(SalesTransaction.inventory_id == inventory_id)
+            query = query.where(PurchaseTransaction.inventory_id == inventory_id)
         if start_date is not None:
             # Assuming transaction_date is a datetime object, we cast it to date for comparison
             from sqlalchemy import cast, Date
-            query = query.where(cast(SalesTransaction.transaction_date, Date) >= start_date)
+            query = query.where(cast(PurchaseTransaction.transaction_date, Date) >= start_date)
         if end_date is not None:
             from sqlalchemy import cast, Date
-            query = query.where(cast(SalesTransaction.transaction_date, Date) <= end_date)
+            query = query.where(cast(PurchaseTransaction.transaction_date, Date) <= end_date)
             
-        query = query.order_by(SalesTransaction.transaction_date)
+        query = query.order_by(PurchaseTransaction.transaction_date)
             
         # This count query remains unchanged and is efficient
         count_query = select(func.count()).select_from(query.subquery())
@@ -104,8 +104,8 @@ class SalesTransactionRepository:
             query.offset(offset)
             .limit(limit)
             .options(
-                selectinload(SalesTransaction.buyer),
-                selectinload(SalesTransaction.inventory)
+                selectinload(PurchaseTransaction.supplier),
+                selectinload(PurchaseTransaction.inventory)
             )
         )
         
@@ -115,7 +115,7 @@ class SalesTransactionRepository:
         
         return items, total_count
 
-    async def update(self, transaction_id: int, data: Dict[str, Any]) -> Optional[SalesTransaction]:
+    async def update(self, transaction_id: int, data: Dict[str, Any]) -> Optional[PurchaseTransaction]:
         """
         Prepares an existing transaction for an update.
         The commit is handled by the session's lifecycle manager.
@@ -125,7 +125,7 @@ class SalesTransactionRepository:
             data: A dictionary with the fields to update.
                   
         Returns:
-            The updated SalesTransaction object, not yet committed.
+            The updated PurchaseTransaction object, not yet committed.
         """
         transaction = await self.get_by_id(transaction_id)
         if transaction:
@@ -134,7 +134,7 @@ class SalesTransactionRepository:
         
         return transaction
 
-    async def delete(self, transaction_id: int) -> Optional[SalesTransaction]:
+    async def delete(self, transaction_id: int) -> Optional[PurchaseTransaction]:
         """
         Prepares a transaction for deletion.
         The commit is handled by the session's lifecycle manager.
@@ -143,7 +143,7 @@ class SalesTransactionRepository:
             transaction_id: The ID of the transaction to delete.
             
         Returns:
-            The SalesTransaction object to be deleted, or None if not found.
+            The PurchaseTransaction object to be deleted, or None if not found.
         """
         transaction = await self.get_by_id(transaction_id)
         if transaction:

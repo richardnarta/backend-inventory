@@ -1,6 +1,6 @@
-from typing import Optional
-from sqlmodel import Field, SQLModel
-
+from typing import Optional, List
+from sqlmodel import Field, SQLModel, Relationship
+from .purchase_transaction import PurchaseTransaction
 
 class Supplier(SQLModel, table=True):
     """
@@ -25,4 +25,9 @@ class Supplier(SQLModel, table=True):
         default=None,
         max_length=50,
         description="Contact phone number for the supplier"
+    )
+    
+    purchases: List["PurchaseTransaction"] = Relationship(
+        back_populates="supplier",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

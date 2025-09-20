@@ -3,15 +3,15 @@ from typing import Optional, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
 
 if TYPE_CHECKING:
-    from .buyer import Buyer
+    from .supplier import Supplier
     from .inventory import Inventory
 
 
-class SalesTransaction(SQLModel, table=True):
+class PurchaseTransaction(SQLModel, table=True):
     """
-    SQLModel for sales transactions.
+    SQLModel for purchases transactions.
     """
-    __tablename__ = "sales_transaction"
+    __tablename__ = "purchase_transaction"
 
     # Primary Key
     id: Optional[int] = Field(
@@ -27,11 +27,11 @@ class SalesTransaction(SQLModel, table=True):
     )
 
     # Foreign Keys
-    buyer_id: Optional[int] = Field(
+    supplier_id: Optional[int] = Field(
         default=None,
-        foreign_key="buyer.id",
+        foreign_key="supplier.id",
         index=True,
-        description="Foreign key to the Buyer (customer) table",
+        description="Foreign key to the Supplier table",
         sa_column_kwargs={"nullable": True}
     )
     inventory_id: Optional[str] = Field(
@@ -43,7 +43,7 @@ class SalesTransaction(SQLModel, table=True):
     )
 
     # Transaction details
-    roll_count: Optional[int] = Field(
+    roll_count: Optional[float] = Field(
         default=0,
         description="Quantity sold in rolls"
     )
@@ -51,9 +51,10 @@ class SalesTransaction(SQLModel, table=True):
         default=0.0,
         description="Quantity sold in kilograms"
     )
-    price_per_kg: int = Field(
+    price_per_kg: float = Field(
+        default=0,
         description="Unit price at the time of sale. Copied from Inventory for historical accuracy."
     )
     
-    buyer: "Buyer" = Relationship(back_populates="sales")
-    inventory: "Inventory" = Relationship(back_populates="sales")
+    supplier: "Supplier" = Relationship(back_populates="purchases")
+    inventory: "Inventory" = Relationship(back_populates="purchases")

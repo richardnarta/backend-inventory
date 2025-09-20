@@ -2,6 +2,7 @@ from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, Enum as SQLAlchemyEnum
 from .sales_transaction import SalesTransaction
+from .purchase_transaction import PurchaseTransaction
 from enum import Enum
 
 
@@ -59,6 +60,10 @@ class Inventory(SQLModel, table=True):
         return 0.0
     
     sales: List["SalesTransaction"] = Relationship(
+        back_populates="inventory",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    purchases: List["PurchaseTransaction"] = Relationship(
         back_populates="inventory",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

@@ -7,8 +7,8 @@ from app.service.sales_transaction import SalesTransactionService
 from app.di.core import get_transaction_service
 
 # --- Pydantic Schema Imports ---
-from app.schema.request.transaction import SalesTransactionCreateRequest, SalesTransactionUpdateRequest
-from app.schema.response.transaction import (
+from app.schema.request.sales_transaction import SalesTransactionCreateRequest, SalesTransactionUpdateRequest
+from app.schema.response.sales_transaction import (
     BulkSalesTransactionResponse, 
     SingleSalesTransactionResponse,
     BaseSingleResponse
