@@ -62,7 +62,7 @@ class KnitFormulaService:
                 )
             product_id = existing_product.id
             
-            formula = self.formula_repo.get_by_product_id(product_id)
+            formula = await self.formula_repo.get_by_product_id(product_id)
             
             if formula:
                 raise HTTPException(

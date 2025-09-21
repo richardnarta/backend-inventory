@@ -21,7 +21,7 @@ class KnitFormulaRepository:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
     
-    async def get_by_product_id(self, product_id: int) -> Optional[KnitFormula]:
+    async def get_by_product_id(self, product_id: str) -> Optional[KnitFormula]:
         query = select(KnitFormula).where(KnitFormula.product_id == product_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
