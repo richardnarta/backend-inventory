@@ -7,6 +7,7 @@ from enum import Enum
 
 if TYPE_CHECKING:
     from .machine_activity import MachineActivity
+    from .knit_formula import KnitFormula
 
 
 class InventoryType(str, Enum):
@@ -72,3 +73,7 @@ class Inventory(SQLModel, table=True):
     )
     
     machine_activities: List["MachineActivity"] = Relationship(back_populates="inventory")
+    knit_formula: Optional["KnitFormula"] = Relationship(
+        back_populates="product",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )

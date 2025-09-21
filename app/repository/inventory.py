@@ -39,6 +39,30 @@ class InventoryRepository:
             An Inventory object if found, otherwise None.
         """
         return await self.session.get(Inventory, item_id)
+    
+    async def get_by_ids(self, ids: List[str]) -> List[Inventory]:
+        """
+        Efficiently retrieves a list of inventory items by a list of their IDs.
+        
+        Args:
+            ids: A list of inventory string IDs to fetch.
+            
+        Returns:
+            A list of the found Inventory objects. If an ID is not found,
+            it is simply omitted from the result.
+        """
+        # 1. Handle the edge case of an empty list to avoid an invalid query.
+        if not ids:
+            return []
+        
+        # 2. Build the query using a WHERE ... IN ... clause.
+        query = select(Inventory).where(Inventory.id.in_(ids))
+        
+        # 3. Execute the query and get the results.
+        result = await self.session.execute(query)
+        
+        # 4. Extract the Inventory objects and return them as a list.
+        return result.scalars().all()
 
     async def get_all(
         self, 

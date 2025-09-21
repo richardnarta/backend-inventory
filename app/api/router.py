@@ -8,6 +8,8 @@ from app.api.endpoints.supplier import router as supplier
 from app.api.endpoints.purchase_transaction import router as purchase
 from app.api.endpoints.machine import router as machine
 from app.api.endpoints.machine_activity import router as machine_activity
+from app.api.endpoints.knit_formula import router as knit_formula
+
 
 # Create main API router
 api_router = APIRouter()
@@ -99,6 +101,17 @@ api_router.include_router(
     machine_activity,
     prefix="/machine-activity",
     tags=["Machine Activity"],
+    responses={
+        404: {"description": "Not Found Error"},
+        422: {"description": "Validation Error"},
+        500: {"description": "Internal Server Error"},
+    }
+)
+
+api_router.include_router(
+    knit_formula,
+    prefix="/knit-formula",
+    tags=["Knit Formula"],
     responses={
         404: {"description": "Not Found Error"},
         422: {"description": "Validation Error"},

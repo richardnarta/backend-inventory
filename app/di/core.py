@@ -27,6 +27,9 @@ from app.service.machine import MachineService
 from app.repository.machine_activity import MachineActivityRepository
 from app.service.machine_activity import MachineActivityService
 
+from app.repository.knit_formula import KnitFormulaRepository
+from app.service.knit_formula import KnitFormulaService
+
 
 def get_inventory_repo(session: AsyncSession = Depends(get_db)) -> InventoryRepository:
     """Dependency to provide an InventoryRepository instance."""
@@ -109,3 +112,13 @@ def get_machine_activity_service(
     machine_repo: MachineRepository = Depends(get_machine_repo)
 ) -> MachineActivityService:
     return MachineActivityService(repo, inventory_repo, machine_repo)
+
+
+def get_knit_formula_repo(session: AsyncSession = Depends(get_db)) -> KnitFormulaRepository:
+    return KnitFormulaRepository(session)
+
+def get_knit_formula_service(
+    formula_repo: KnitFormulaRepository = Depends(get_knit_formula_repo),
+    inventory_repo: InventoryRepository = Depends(get_inventory_repo)
+) -> KnitFormulaService:
+    return KnitFormulaService(formula_repo, inventory_repo)
