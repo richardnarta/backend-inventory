@@ -72,7 +72,8 @@ class KnitFormulaService:
 
         formula_data = {
             "product_id": product_id,
-            "formula": [item.model_dump() for item in data.formula]
+            "formula": [item.model_dump() for item in data.formula],
+            "production_weight": data.production_weight
         }
         new_formula = await self.formula_repo.create(formula_data)
         
