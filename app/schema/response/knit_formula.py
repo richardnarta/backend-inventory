@@ -14,6 +14,7 @@ class KnitFormulaData(BaseModel):
     id: int
     product: InventoryData
     formula: List[FormulaItemData]
+    production_weight: float
 
     class Config:
         from_attributes = True

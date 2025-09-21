@@ -27,7 +27,7 @@ class KnitFormulaRepository:
         return result.scalar_one_or_none()
 
     async def get_all(self, page: int, limit: int) -> Tuple[List[KnitFormula], int]:
-        query = select(KnitFormula).options(selectinload(KnitFormula.product))
+        query = select(KnitFormula).options(selectinload(KnitFormula.product)).order_by(KnitFormula.id)
         
         count_query = select(func.count()).select_from(query.subquery())
         total_count = (await self.session.execute(count_query)).scalar_one()

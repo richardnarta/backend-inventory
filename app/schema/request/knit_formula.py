@@ -1,4 +1,4 @@
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, Field
 from typing import Optional, List
 
 class FormulaItemBase(BaseModel):
@@ -16,6 +16,7 @@ class KnitFormulaCreateRequest(BaseModel):
     product_id: Optional[str] = None
     product_name: Optional[str] = None
     formula: List[FormulaItemBase]
+    production_weight: float
 
     @model_validator(mode='after')
     def check_product_logic(self) -> 'KnitFormulaCreateRequest':
@@ -39,3 +40,4 @@ class KnitFormulaCreateRequest(BaseModel):
 class KnitFormulaUpdateRequest(BaseModel):
     """Pydantic model for updating a knit formula."""
     formula: Optional[List[FormulaItemBase]] = None
+    production_weight: Optional[float] = Field(0.0, ge=0)
