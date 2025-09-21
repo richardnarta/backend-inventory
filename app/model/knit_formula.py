@@ -4,6 +4,7 @@ from sqlalchemy import Column, JSON
 
 if TYPE_CHECKING:
     from .inventory import Inventory
+    from .knitting_process import KnittingProcess
 
 class KnitFormula(SQLModel, table=True):
     """
@@ -24,3 +25,7 @@ class KnitFormula(SQLModel, table=True):
     )
 
     product: "Inventory" = Relationship(back_populates="knit_formula")
+    knitting_history: List["KnittingProcess"] = Relationship(
+        back_populates="knit_formula",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )

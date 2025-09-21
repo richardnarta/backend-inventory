@@ -9,6 +9,7 @@ from app.api.endpoints.purchase_transaction import router as purchase
 from app.api.endpoints.machine import router as machine
 from app.api.endpoints.machine_activity import router as machine_activity
 from app.api.endpoints.knit_formula import router as knit_formula
+from app.api.endpoints.knitting_process import router as knitting_process
 
 
 # Create main API router
@@ -118,6 +119,18 @@ api_router.include_router(
         500: {"description": "Internal Server Error"},
     }
 )
+
+api_router.include_router(
+    knitting_process,
+    prefix="/knit",
+    tags=["Knitting Process"],
+    responses={
+        404: {"description": "Not Found Error"},
+        422: {"description": "Validation Error"},
+        500: {"description": "Internal Server Error"},
+    }
+)
+
 
 def get_api_router():
     """Get configured API router dengan semua endpoints."""
