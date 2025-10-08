@@ -30,6 +30,8 @@ class Buyer(SQLModel, table=True):
         max_length=50,
         description="Contact phone number for the customer"
     )
+    address: Optional[str] = Field(default=None)
+    note: Optional[str] = Field(default=None)
     
     sales: List["SalesTransaction"] = Relationship(
         back_populates="buyer",

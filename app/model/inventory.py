@@ -6,7 +6,7 @@ from .purchase_transaction import PurchaseTransaction
 from enum import Enum
 
 if TYPE_CHECKING:
-    from .machine_activity import MachineActivity
+    from .dyeing_process import DyeingProcess
     from .knit_formula import KnitFormula
 
 
@@ -36,7 +36,7 @@ class Inventory(SQLModel, table=True):
     )
     
     # Stock levels
-    roll_count: Optional[int] = Field(
+    roll_count: Optional[float] = Field(
         default=0,
         description="Stock level in rolls"
     )
@@ -44,24 +44,10 @@ class Inventory(SQLModel, table=True):
         default=0.0,
         description="Stock level in kilograms"
     )
-    bale_count: Optional[int] = Field(
+    bale_count: Optional[float] = Field(
         default=0,
         description="Stock level in bales"
     )
-
-    price_per_kg: Optional[float] = Field(
-        default=0,
-        description="Unit price of the item"
-    )
-
-    def calculate_nilai_total(self) -> float:
-        """
-        Calculates the total value of the item based on stock and unit price.
-        This is a post-calculation method and the result is not stored in the database.
-        """
-        if self.weight_kg is not None and self.price_per_kg is not None:
-            return self.weight_kg * self.price_per_kg
-        return 0.0
     
     sales: List["SalesTransaction"] = Relationship(
         back_populates="inventory",
@@ -72,8 +58,11 @@ class Inventory(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     
-    machine_activities: List["MachineActivity"] = Relationship(back_populates="inventory")
     knit_formula: Optional["KnitFormula"] = Relationship(
+        back_populates="product",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    dyeing_process: Optional["DyeingProcess"] = Relationship(
         back_populates="product",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

@@ -4,7 +4,7 @@ from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
 
 if TYPE_CHECKING:
-    from .machine_activity import MachineActivity
+    from .knitting_process import KnittingProcess
 
 class Machine(SQLModel, table=True):
     """
@@ -13,10 +13,11 @@ class Machine(SQLModel, table=True):
     __tablename__ = "machine"
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    
     name: str = Field(index=True, unique=True)
 
     # Each machine can have a list of activities
-    activities: List["MachineActivity"] = Relationship(
+    knitting_history: List["KnittingProcess"] = Relationship(
         back_populates="machine",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

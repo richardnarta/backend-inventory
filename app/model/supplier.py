@@ -27,6 +27,9 @@ class Supplier(SQLModel, table=True):
         description="Contact phone number for the supplier"
     )
     
+    address: Optional[str] = Field(default=None)
+    note: Optional[str] = Field(default=None)
+    
     purchases: List["PurchaseTransaction"] = Relationship(
         back_populates="supplier",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}

@@ -43,7 +43,7 @@ class SalesTransaction(SQLModel, table=True):
     )
 
     # Transaction details
-    roll_count: Optional[int] = Field(
+    roll_count: Optional[float] = Field(
         default=0,
         description="Quantity sold in rolls"
     )
@@ -51,8 +51,8 @@ class SalesTransaction(SQLModel, table=True):
         default=0.0,
         description="Quantity sold in kilograms"
     )
-    price_per_kg: int = Field(
-        description="Unit price at the time of sale. Copied from Inventory for historical accuracy."
+    price_per_kg: float = Field(
+        description="Unit price at the time of sale."
     )
     
     buyer: "Buyer" = Relationship(back_populates="sales")

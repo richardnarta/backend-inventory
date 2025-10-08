@@ -29,25 +29,24 @@ class AccountReceivable(SQLModel, table=True):
 
     # Receivable details
     period: str = Field(
-        max_length=20,
         index=True,
         description="The period for the receivable, e.g., 'Apr-25'"
     )
 
     # Aging buckets for the receivable amount
-    age_0_30_days: Optional[int] = Field(
+    age_0_30_days: Optional[float] = Field(
         default=0,
         description="Receivable amount aged 0-30 days"
     )
-    age_31_60_days: Optional[int] = Field(
+    age_31_60_days: Optional[float] = Field(
         default=0,
         description="Receivable amount aged 31-60 days"
     )
-    age_61_90_days: Optional[int] = Field(
+    age_61_90_days: Optional[float] = Field(
         default=0,
         description="Receivable amount aged 61-90 days"
     )
-    age_over_90_days: Optional[int] = Field(
+    age_over_90_days: Optional[float] = Field(
         default=0,
         description="Receivable amount aged over 90 days"
     )
