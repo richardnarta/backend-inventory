@@ -18,6 +18,7 @@ class KnittingProcessData(BaseModel):
     knit_formula: Optional[KnitFormulaData] = None
     operator: Optional[OperatorData] = None
     machine: Optional[MachineData] = None
+    roll_count: Optional[float] = None
 
     class Config:
         from_attributes = True
