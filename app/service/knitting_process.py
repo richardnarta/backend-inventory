@@ -122,6 +122,7 @@ class KnittingProcessService:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produk akhir di inventory tidak ditemukan, update dibatalkan.")
 
             product_inventory.weight_kg = (product_inventory.weight_kg or 0) + db_process.weight_kg
+            product_inventory.roll_count = (product_inventory.roll_count or 0) + db_process.roll_count
 
         updated_process = await self.process_repo.update(
             db_kp=db_process, kp_update=kp_update
@@ -153,6 +154,7 @@ class KnittingProcessService:
                 product_inventory = await self.inventory_repo.get_by_id(inventory_id=formula.product_id)
                 if product_inventory:
                     product_inventory.weight_kg = (product_inventory.weight_kg or 0) - db_process.weight_kg
+                    product_inventory.roll_count = (product_inventory.roll_count or 0) - db_process.roll_count
 
         await self.process_repo.delete(db_kp=db_process)
         return BaseSingleResponse(message=f"Data proses rajut berhasil dihapus.")

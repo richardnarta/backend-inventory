@@ -28,6 +28,10 @@ class DyeingProcess(SQLModel, table=True):
         default=0.0,
         description="The final weight of the material after the dyeing process"
     )
+    dyeing_roll_count: Optional[float] = Field(
+        default=0.0,
+        description="The final roll_count of the material after the dyeing process"
+    )
     
     dyeing_overhead_cost: Optional[float] = Field(
         default=0.0,

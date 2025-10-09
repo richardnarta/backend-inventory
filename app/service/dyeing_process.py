@@ -45,6 +45,7 @@ class DyeingProcessService:
                 detail="Stok berat (kg) produk tidak mencukupi untuk proses celup."
             )
         product.weight_kg -= dp_create.dyeing_weight
+        product.roll_count -= dp_create.dyeing_roll_count
         # ----------------------------------------------------
 
         create_data = dp_create.model_dump()
@@ -89,6 +90,7 @@ class DyeingProcessService:
             
             # The schema validator already ensures dyeing_final_weight is not None
             product.weight_kg = (product.weight_kg or 0) + dp_update.dyeing_final_weight
+            product.roll_count = (product.roll_count or 0) + dp_update.dyeing_roll_count
         # ----------------------------------------------------------------------
 
         updated_process = await self.dyeing_repo.update(
@@ -115,6 +117,7 @@ class DyeingProcessService:
             # If the process was completed, subtract the final weight that was added
             if db_process.dyeing_status and db_process.dyeing_final_weight is not None:
                 product.weight_kg -= db_process.dyeing_final_weight
+                product.roll_count -= db_process.dyeing_roll_count
             
             # Always add back the initial weight that was subtracted
             product.weight_kg += db_process.dyeing_weight

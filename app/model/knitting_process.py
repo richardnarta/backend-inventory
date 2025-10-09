@@ -29,10 +29,15 @@ class KnittingProcess(SQLModel, table=True):
         index=True,
         description="The current status of the knitting process"
     )
-    
+
     # The actual weight produced in this specific run
     weight_kg: float
-    
+
+    roll_count: Optional[float] = Field(
+        default=0,
+        description="Stock level in rolls"
+    )
+
     # The calculated list of materials based on the actual weight
     materials: List[Dict[str, Any]] = Field(sa_column=Column(JSON))
 

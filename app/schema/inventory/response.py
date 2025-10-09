@@ -12,6 +12,7 @@ class InventoryData(BaseModel):
     roll_count: Optional[float] = 0.0
     weight_kg: Optional[float] = 0.0
     bale_count: Optional[float] = 0.0
+    bale_ratio: Optional[float] = 0.0
 
     class Config:
         from_attributes = True

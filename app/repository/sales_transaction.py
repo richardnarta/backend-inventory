@@ -38,7 +38,13 @@ class SalesTransactionRepository:
             The newly created SalesTransaction entity.
         """
         create_data = st_create.model_dump()
-        db_st = SalesTransaction(**create_data, transaction_date=datetime.now())
+        if 'transaction_date' not in create_data:
+            create_data.update(
+                {
+                    'transaction_date':datetime.now()
+                }
+            )
+        db_st = SalesTransaction(**create_data)
         self.session.add(db_st)
         await self.session.commit()
         await self.session.refresh(db_st)

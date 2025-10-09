@@ -48,6 +48,10 @@ class Inventory(SQLModel, table=True):
         default=0,
         description="Stock level in bales"
     )
+    bale_ratio: Optional[float] = Field(
+        default=0,
+        description="Stock level in bales"
+    )
     
     sales: List["SalesTransaction"] = Relationship(
         back_populates="inventory",

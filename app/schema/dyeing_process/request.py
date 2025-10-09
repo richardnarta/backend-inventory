@@ -5,11 +5,13 @@ from datetime import datetime
 class DyeingProcessCreateRequest(BaseModel):
     product_id: str
     dyeing_weight: float = Field(..., gt=0)
+    dyeing_roll_count: float = Field(..., gt=0, description="The desired final roll count to produce.")
     dyeing_note: Optional[str] = None
 
 class DyeingProcessUpdateRequest(BaseModel):
     end_date: Optional[datetime] = None
     dyeing_final_weight: Optional[float] = Field(None, ge=0)
+    dyeing_roll_count: Optional[float] = Field(None, ge=0)
     dyeing_overhead_cost: Optional[float] = Field(None, ge=0)
     dyeing_status: Optional[bool] = None
     dyeing_note: Optional[str] = None
@@ -27,4 +29,6 @@ class DyeingProcessUpdateRequest(BaseModel):
                 raise ValueError("end_date is required when status is True")
             if self.dyeing_overhead_cost is None:
                 raise ValueError("dyeing_overhead_cost is required when status is True")
+            if self.dyeing_roll_count is None:
+                raise ValueError("dyeing_roll_count is required when status is True")
         return self

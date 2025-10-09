@@ -13,6 +13,7 @@ class KnittingProcessUpdateRequest(BaseModel):
     knit_status: Optional[bool] = None
     operator_id: Optional[int] = None
     machine_id: Optional[int] = None
+    roll_count: Optional[float] = None
 
     # --- ADD THIS VALIDATOR ---
     @field_validator('end_date', mode='before')

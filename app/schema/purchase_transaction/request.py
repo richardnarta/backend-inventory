@@ -1,9 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import Optional
+from datetime import date
 
 class PurchaseTransactionCreateRequest(BaseModel):
     supplier_id: int
     inventory_id: str
+    transaction_date: date
     bale_count: Optional[float] = Field(0.0, ge=0)
     roll_count: Optional[float] = Field(0.0, ge=0)
     weight_kg: Optional[float] = Field(0.0, ge=0)

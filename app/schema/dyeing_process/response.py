@@ -12,6 +12,7 @@ class DyeingProcessData(BaseModel):
     end_date: Optional[datetime] = None
     dyeing_weight: float
     dyeing_final_weight: Optional[float] = None
+    dyeing_roll_count: Optional[float] = None
     dyeing_overhead_cost: Optional[float] = None
     dyeing_status: bool
     dyeing_note: Optional[str] = None

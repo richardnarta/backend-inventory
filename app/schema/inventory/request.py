@@ -9,6 +9,7 @@ class InventoryCreateRequest(BaseModel):
     roll_count: Optional[float] = Field(0, ge=0)
     weight_kg: Optional[float] = Field(0.0, ge=0)
     bale_count: Optional[float] = Field(0, ge=0)
+    bale_ratio: Optional[float] = Field(0, ge=0)
     
     @field_validator('id')
     def sanitize_id(cls, v: str) -> str:
@@ -20,3 +21,4 @@ class InventoryUpdateRequest(BaseModel):
     roll_count: Optional[float] = Field(None, ge=0)
     weight_kg: Optional[float] = Field(None, ge=0)
     bale_count: Optional[float] = Field(None, ge=0)
+    bale_ratio: Optional[float] = Field(0, ge=0)
