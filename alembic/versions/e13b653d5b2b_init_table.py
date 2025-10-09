@@ -102,11 +102,9 @@ def upgrade() -> None:
     sa.Column('dyeing_note', sa.String(), nullable=True),
     sa.ForeignKeyConstraint(['product_id'], ['inventory.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('product_id')
     )
     op.create_index(op.f('ix_dyeing_process_dyeing_status'), 'dyeing_process', ['dyeing_status'], unique=False)
     op.create_index(op.f('ix_dyeing_process_end_date'), 'dyeing_process', ['end_date'], unique=False)
-    op.create_index(op.f('ix_dyeing_process_product_id'), 'dyeing_process', ['product_id'], unique=True)
     op.create_index(op.f('ix_dyeing_process_start_date'), 'dyeing_process', ['start_date'], unique=False)
     
     op.create_table('knit_formula',

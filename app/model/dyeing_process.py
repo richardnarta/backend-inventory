@@ -17,7 +17,7 @@ class DyeingProcess(SQLModel, table=True):
     start_date: datetime = Field(index=True)
     end_date: Optional[datetime] = Field(index=True)
     
-    product_id: str = Field(foreign_key="inventory.id", unique=True, index=True)
+    product_id: str = Field(foreign_key="inventory.id")
     
     dyeing_weight: float = Field(
         default=0.0,
