@@ -3,135 +3,128 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 
+# Import all repositories
 from app.repository.account_receivable import AccountReceivableRepository
-from app.service.account_receivable import AccountReceivableService
-
 from app.repository.buyer import BuyerRepository
-from app.service.buyer import BuyerService
-
+from app.repository.dyeing_process import DyeingProcessRepository
 from app.repository.inventory import InventoryRepository
-from app.service.inventory import InventoryService
-
+from app.repository.knit_formula import KnitFormulaRepository
+from app.repository.knitting_process import KnittingProcessRepository
+from app.repository.machine import MachineRepository
+from app.repository.operator import OperatorRepository
+from app.repository.purchase_transaction import PurchaseTransactionRepository
 from app.repository.sales_transaction import SalesTransactionRepository
-from app.service.sales_transaction import SalesTransactionService
-
 from app.repository.supplier import SupplierRepository
+
+# Import all services
+from app.service.account_receivable import AccountReceivableService
+from app.service.buyer import BuyerService
+from app.service.dyeing_process import DyeingProcessService
+from app.service.inventory import InventoryService
+from app.service.knit_formula import KnitFormulaService
+from app.service.knitting_process import KnittingProcessService
+from app.service.machine import MachineService
+from app.service.operator import OperatorService
+from app.service.purchase_transaction import PurchaseTransactionService
+from app.service.sales_transaction import SalesTransactionService
 from app.service.supplier import SupplierService
 
-from app.repository.purchase_transaction import PurchaseTransactionRepository
-from app.service.purchase_transaction import PurchaseTransactionService
 
-from app.repository.machine import MachineRepository
-from app.service.machine import MachineService
-
-from app.repository.machine_activity import MachineActivityRepository
-from app.service.machine_activity import MachineActivityService
-
-from app.repository.knit_formula import KnitFormulaRepository
-from app.service.knit_formula import KnitFormulaService
-
-from app.repository.knitting_process import KnittingProcessRepository
-from app.service.knitting_process import KnittingProcessService
-
+# --- Base Repositories (used by multiple services) ---
 
 def get_inventory_repo(session: AsyncSession = Depends(get_db)) -> InventoryRepository:
-    """Dependency to provide an InventoryRepository instance."""
     return InventoryRepository(session)
 
-def get_inventory_service(repo: InventoryRepository = Depends(get_inventory_repo)) -> InventoryService:
-    """Dependency to provide an InventoryService instance."""
-    return InventoryService(repo)
-
-
 def get_buyer_repo(session: AsyncSession = Depends(get_db)) -> BuyerRepository:
-    """Dependency to provide a BuyerRepository instance."""
     return BuyerRepository(session)
 
+def get_supplier_repo(session: AsyncSession = Depends(get_db)) -> SupplierRepository:
+    return SupplierRepository(session)
+
+def get_machine_repo(session: AsyncSession = Depends(get_db)) -> MachineRepository:
+    return MachineRepository(session)
+
+def get_operator_repo(session: AsyncSession = Depends(get_db)) -> OperatorRepository:
+    return OperatorRepository(session)
+
+def get_knit_formula_repo(session: AsyncSession = Depends(get_db)) -> KnitFormulaRepository:
+    return KnitFormulaRepository(session)
+
+# --- Service Dependencies ---
+
+def get_inventory_service(repo: InventoryRepository = Depends(get_inventory_repo)) -> InventoryService:
+    return InventoryService(repo)
+
 def get_buyer_service(repo: BuyerRepository = Depends(get_buyer_repo)) -> BuyerService:
-    """Dependency to provide a BuyerService instance."""
     return BuyerService(repo)
 
+def get_supplier_service(repo: SupplierRepository = Depends(get_supplier_repo)) -> SupplierService:
+    return SupplierService(repo)
+
+def get_machine_service(repo: MachineRepository = Depends(get_machine_repo)) -> MachineService:
+    return MachineService(repo)
+
+def get_operator_service(repo: OperatorRepository = Depends(get_operator_repo)) -> OperatorService:
+    return OperatorService(repo)
 
 def get_receivable_repo(session: AsyncSession = Depends(get_db)) -> AccountReceivableRepository:
-    """Dependency to provide an AccountReceivableRepository instance."""
     return AccountReceivableRepository(session)
 
 def get_receivable_service(
     repo: AccountReceivableRepository = Depends(get_receivable_repo),
     buyer_repo: BuyerRepository = Depends(get_buyer_repo),
 ) -> AccountReceivableService:
-    """Dependency to provide an AccountReceivableService instance."""
-    return AccountReceivableService(repo, buyer_repo)
+    return AccountReceivableService(receivable_repo=repo, buyer_repo=buyer_repo)
 
-
-def get_transaction_repo(session: AsyncSession = Depends(get_db)) -> SalesTransactionRepository:
-    """Dependency to provide a SalesTransactionRepository instance."""
+def get_sales_transaction_repo(session: AsyncSession = Depends(get_db)) -> SalesTransactionRepository:
     return SalesTransactionRepository(session)
 
-def get_transaction_service(
-    repo: SalesTransactionRepository = Depends(get_transaction_repo),
+def get_sales_transaction_service(
+    repo: SalesTransactionRepository = Depends(get_sales_transaction_repo),
     buyer_repo: BuyerRepository = Depends(get_buyer_repo),
-    inventory_repo: InventoryRepository = Depends(get_inventory_repo)
+    inventory_repo: InventoryRepository = Depends(get_inventory_repo),
 ) -> SalesTransactionService:
-    """Dependency to provide a SalesTransactionService instance."""
-    return SalesTransactionService(repo, buyer_repo, inventory_repo)
-
-
-def get_supplier_repo(session: AsyncSession = Depends(get_db)) -> SupplierRepository:
-    """Dependency to provide a SupplierRepository instance."""
-    return SupplierRepository(session)
-
-def get_supplier_service(repo: SupplierRepository = Depends(get_supplier_repo)) -> SupplierService:
-    """Dependency to provide a SupplierService instance."""
-    return SupplierService(repo)
-
+    return SalesTransactionService(st_repo=repo, buyer_repo=buyer_repo, inventory_repo=inventory_repo)
 
 def get_purchase_transaction_repo(session: AsyncSession = Depends(get_db)) -> PurchaseTransactionRepository:
-    """Dependency to provide a PurchaseTransactionRepository instance."""
     return PurchaseTransactionRepository(session)
 
-def get_purchase_service(
+def get_purchase_transaction_service(
     repo: PurchaseTransactionRepository = Depends(get_purchase_transaction_repo),
-    supplier_repo: BuyerRepository = Depends(get_supplier_repo),
-    inventory_repo: InventoryRepository = Depends(get_inventory_repo)
-) -> PurchaseTransactionService:
-    """Dependency to provide a PurchaseTransactionService instance."""
-    return PurchaseTransactionService(repo, supplier_repo, inventory_repo)
-
-
-def get_machine_repo(session: AsyncSession = Depends(get_db)) -> MachineRepository:
-    return MachineRepository(session)
-
-def get_machine_service(repo: MachineRepository = Depends(get_machine_repo)) -> MachineService:
-    return MachineService(repo)
-
-
-def get_machine_activity_repo(session: AsyncSession = Depends(get_db)) -> MachineActivityRepository:
-    return MachineActivityRepository(session)
-
-def get_machine_activity_service(
-    repo: MachineActivityRepository = Depends(get_machine_activity_repo),
+    supplier_repo: SupplierRepository = Depends(get_supplier_repo),
     inventory_repo: InventoryRepository = Depends(get_inventory_repo),
-    machine_repo: MachineRepository = Depends(get_machine_repo)
-) -> MachineActivityService:
-    return MachineActivityService(repo, inventory_repo, machine_repo)
-
-
-def get_knit_formula_repo(session: AsyncSession = Depends(get_db)) -> KnitFormulaRepository:
-    return KnitFormulaRepository(session)
+) -> PurchaseTransactionService:
+    return PurchaseTransactionService(pt_repo=repo, supplier_repo=supplier_repo, inventory_repo=inventory_repo)
 
 def get_knit_formula_service(
     formula_repo: KnitFormulaRepository = Depends(get_knit_formula_repo),
-    inventory_repo: InventoryRepository = Depends(get_inventory_repo)
+    inventory_repo: InventoryRepository = Depends(get_inventory_repo),
 ) -> KnitFormulaService:
-    return KnitFormulaService(formula_repo, inventory_repo)
+    return KnitFormulaService(formula_repo=formula_repo, inventory_repo=inventory_repo)
 
+def get_dyeing_process_repo(session: AsyncSession = Depends(get_db)) -> DyeingProcessRepository:
+    return DyeingProcessRepository(session)
+    
+def get_dyeing_process_service(
+    dyeing_repo: DyeingProcessRepository = Depends(get_dyeing_process_repo),
+    inventory_repo: InventoryRepository = Depends(get_inventory_repo),
+) -> DyeingProcessService:
+    return DyeingProcessService(dyeing_repo=dyeing_repo, inventory_repo=inventory_repo)
 
 def get_knitting_process_repo(session: AsyncSession = Depends(get_db)) -> KnittingProcessRepository:
     return KnittingProcessRepository(session)
 
 def get_knitting_process_service(
     process_repo: KnittingProcessRepository = Depends(get_knitting_process_repo),
-    formula_repo: KnitFormulaRepository = Depends(get_knit_formula_repo)
+    formula_repo: KnitFormulaRepository = Depends(get_knit_formula_repo),
+    operator_repo: OperatorRepository = Depends(get_operator_repo),
+    machine_repo: MachineRepository = Depends(get_machine_repo),
+    inventory_repo: InventoryRepository = Depends(get_inventory_repo),
 ) -> KnittingProcessService:
-    return KnittingProcessService(process_repo, formula_repo)
+    return KnittingProcessService(
+        process_repo=process_repo,
+        formula_repo=formula_repo,
+        operator_repo=operator_repo,
+        machine_repo=machine_repo,
+        inventory_repo=inventory_repo,
+    )

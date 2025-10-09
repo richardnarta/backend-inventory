@@ -1,97 +1,120 @@
-from typing import Optional, List, Tuple
+from typing import Optional
 from fastapi import HTTPException, status
 
 from app.repository.inventory import InventoryRepository
-from app.model.inventory import Inventory # The DB model
-# The Pydantic request models
-from app.schema.request.inventory import InventoryCreateRequest, InventoryUpdateRequest
-# The Pydantic response models
-from app.schema.response.inventory import (
-    BulkInventoryResponse, 
+from app.schema.inventory.request import InventoryCreateRequest, InventoryUpdateRequest
+from app.schema.inventory.response import (
+    BulkInventoryResponse,
     SingleInventoryResponse,
-    BaseSingleResponse
 )
+from app.schema.base_response import BaseSingleResponse
 
 class InventoryService:
-    """Service class for inventory-related business logic using Pydantic."""
+    """Service class for inventory-related business logic."""
 
     def __init__(self, inventory_repo: InventoryRepository):
+        """
+        Initializes the service with the inventory repository.
+
+        Args:
+            inventory_repo: The repository for inventory data.
+        """
         self.inventory_repo = inventory_repo
 
-    async def get_all(self, name: Optional[str], type: Optional[str], id: Optional[str], page: int, limit: int) -> BulkInventoryResponse:
+    async def get_all(
+        self,
+        name: Optional[str],
+        id: Optional[str],
+        type: Optional[str],
+        page: int,
+        limit: int,
+    ) -> BulkInventoryResponse:
         """
         Retrieves a paginated list of inventory items and formats the response.
         """
-        items, total_count = await self.inventory_repo.get_all(name=name, id=id, type=type, page=page, limit=limit)
+        items, total_count = await self.inventory_repo.get_all(
+            name=name, id=id, type=type, page=page, limit=limit
+        )
         total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
-        
+
         return BulkInventoryResponse(
             items=items,
             item_count=total_count,
             page=page,
             limit=limit,
-            total_pages=total_pages
+            total_pages=total_pages,
         )
 
-    async def get_by_id(self, item_id: str) -> SingleInventoryResponse:
+    async def get_by_id(self, inventory_id: str) -> SingleInventoryResponse:
         """
         Retrieves a single inventory item by its ID.
         Raises an HTTPException if the item is not found.
         """
-        inventory_item = await self.inventory_repo.get_by_id(item_id)
-        if not inventory_item:
+        inventory = await self.inventory_repo.get_by_id(inventory_id=inventory_id)
+        if not inventory:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Barang tidak ditemukan."
+                detail="Barang (inventory) tidak ditemukan.",
             )
-        return SingleInventoryResponse(data=inventory_item)
+        return SingleInventoryResponse(data=inventory)
 
-    async def create(self, data: InventoryCreateRequest) -> SingleInventoryResponse:
+    async def create(
+        self, inventory_create: InventoryCreateRequest
+    ) -> SingleInventoryResponse:
         """
-        Creates a new inventory item.
+        Creates a new inventory item after validating the ID is unique.
         """
-        item_dict = data.model_dump()
-        inventory = await self.inventory_repo.get_by_id(item_dict.get('id'))
-        if inventory:
+        # Check if an inventory item with this ID already exists
+        existing_item = await self.inventory_repo.get_by_id(
+            inventory_id=inventory_create.id
+        )
+        if existing_item:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Id barang telah digunakan."
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Barang (inventory) dengan ID '{inventory_create.id}' sudah ada.",
             )
-        new_item = await self.inventory_repo.create(item_dict)
-        
+
+        new_inventory = await self.inventory_repo.create(
+            inventory_create=inventory_create
+        )
         return SingleInventoryResponse(
-            message="Berhasil menambahkan barang.",
-            data=new_item
+            message="Berhasil menambahkan data barang.", data=new_inventory
         )
 
-    async def update(self, item_id: str, data: InventoryUpdateRequest) -> SingleInventoryResponse:
+    async def update(
+        self, inventory_id: str, inventory_update: InventoryUpdateRequest
+    ) -> SingleInventoryResponse:
         """
         Updates an existing inventory item.
         Raises an HTTPException if the item is not found.
         """
-        inventory_item = await self.inventory_repo.get_by_id(item_id)
-        if not inventory_item:
+        db_inventory = await self.inventory_repo.get_by_id(inventory_id=inventory_id)
+        if not db_inventory:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Barang tidak ditemukan."
+                detail="Barang (inventory) tidak ditemukan.",
             )
-            
-        update_dict = data.model_dump(exclude_unset=True)
-        updated_item = await self.inventory_repo.update(item_id, update_dict)
+
+        updated_inventory = await self.inventory_repo.update(
+            db_inventory=db_inventory, inventory_update=inventory_update
+        )
         return SingleInventoryResponse(
-            message="Berhasil mengupdate data barang.",
-            data=updated_item
+            message="Berhasil mengupdate data barang.", data=updated_inventory
         )
 
-    async def delete(self, item_id: str) -> BaseSingleResponse:
+    async def delete(self, inventory_id: str) -> BaseSingleResponse:
         """
         Deletes an inventory item.
         Raises an HTTPException if the item is not found.
         """
-        deleted_item = await self.inventory_repo.delete(item_id)
-        if not deleted_item:
+        db_inventory = await self.inventory_repo.get_by_id(inventory_id=inventory_id)
+        if not db_inventory:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Barang tidak ditemukan."
+                detail="Barang (inventory) tidak ditemukan.",
             )
-        return BaseSingleResponse(message=f"Berhasil menghapus barang dengan id {item_id}.")
+
+        await self.inventory_repo.delete(db_inventory=db_inventory)
+        return BaseSingleResponse(
+            message=f"Berhasil menghapus data barang dengan id {inventory_id}."
+        )

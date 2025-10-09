@@ -1,124 +1,173 @@
 import uuid
 from typing import Optional, Set, List
 from fastapi import HTTPException, status
+
 from app.repository.knit_formula import KnitFormulaRepository
-from app.repository.inventory import InventoryRepository # We need this repo too
-from app.model.inventory import InventoryType # To set the type for new products
-from app.schema.request.knit_formula import KnitFormulaCreateRequest, KnitFormulaUpdateRequest
-from app.schema.response.knit_formula import BulkKnitFormulaResponse, SingleKnitFormulaResponse, BaseSingleResponse
+from app.repository.inventory import InventoryRepository
+from app.model.inventory import InventoryType
+from app.schema.inventory.request import InventoryCreateRequest
+from app.schema.knit_formula.request import (
+    KnitFormulaCreateRequest,
+    KnitFormulaUpdateRequest,
+    FormulaItemBase,
+)
+from app.schema.knit_formula.response import (
+    BulkKnitFormulaResponse,
+    SingleKnitFormulaResponse,
+)
+from app.schema.base_response import BaseSingleResponse
 
 class KnitFormulaService:
-    def __init__(self, formula_repo: KnitFormulaRepository, inventory_repo: InventoryRepository):
+    """Service class for knit formula-related business logic."""
+
+    def __init__(
+        self,
+        formula_repo: KnitFormulaRepository,
+        inventory_repo: InventoryRepository,
+    ):
         self.formula_repo = formula_repo
         self.inventory_repo = inventory_repo
-        
-    async def _validate_formula_inventories(self, formula_items: List) -> None:
+
+    async def _validate_formula_inventories(
+        self, formula_items: List[FormulaItemBase]
+    ) -> None:
         """
-        Efficiently checks if all inventory IDs in a formula exist in the database.
+        Efficiently checks if all inventory IDs in a formula exist.
         Raises an HTTPException if any are missing.
         """
         if not formula_items:
             return
 
-        # 1. Get a unique set of all required inventory IDs from the payload
         required_ids: Set[str] = {item.inventory_id for item in formula_items}
-        
-        # 2. Fetch all matching inventory items from the DB in a single query
-        found_inventories = await self.inventory_repo.get_by_ids(list(required_ids))
+        found_inventories = await self.inventory_repo.get_by_ids(
+            inventory_ids=list(required_ids)
+        )
         found_ids: Set[str] = {item.id for item in found_inventories}
-        
-        # 3. Check if any required IDs are missing from the found IDs
+
         missing_ids = required_ids - found_ids
         if missing_ids:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"ID benang berikut ini tidak ditemukan: {', '.join(missing_ids)}"
+                detail=f"ID benang berikut ini tidak ditemukan: {', '.join(missing_ids)}",
             )
 
-    async def create(self, data: KnitFormulaCreateRequest) -> SingleKnitFormulaResponse:
-        await self._validate_formula_inventories(data.formula)
-        
-        product_id: str
+    async def create(
+        self, kf_create: KnitFormulaCreateRequest
+    ) -> SingleKnitFormulaResponse:
+        """
+        Creates a new knit formula, handling new or existing product logic.
+        """
+        await self._validate_formula_inventories(kf_create.formula)
 
-        if data.new_product:
-            new_id = f"T{str(uuid.uuid4())[:4].upper()}"
-            new_product_data = {
-                "id": new_id,
-                "name": data.product_name,
-                "type": InventoryType.FABRIC,
-                "roll_count": 0,
-                "weight_kg": 0,
-                "bale_count": 0,
-                "price_per_kg": 0,
-            }
-            new_product = await self.inventory_repo.create(new_product_data)
-            product_id = new_product.id
+        # Logic for creating/finding product_id remains the same
+        if kf_create.new_product:
+            new_id = f"FABRIC_{str(uuid.uuid4())[:4].upper()}"
+            new_product_schema = InventoryCreateRequest(
+                id=new_id, name=kf_create.product_name, type=InventoryType.FABRIC
+            )
+            new_product = await self.inventory_repo.create(
+                inventory_create=new_product_schema
+            )
+            kf_create.product_id = new_product.id
         else:
-            existing_product = await self.inventory_repo.get_by_id(data.product_id)
-            if not existing_product:
+            product = await self.inventory_repo.get_by_id(
+                inventory_id=kf_create.product_id
+            )
+            if not product:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Benang dengan ID {data.product_id} tidak ditemukan."
+                    detail=f"Produk dengan ID {kf_create.product_id} tidak ditemukan.",
                 )
-            product_id = existing_product.id
-            
-            formula = await self.formula_repo.get_by_product_id(product_id)
-            
-            if formula:
+            existing_formula = await self.formula_repo.get_by_product_id(
+                product_id=kf_create.product_id
+            )
+            if existing_formula:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Formula rajut {existing_product.name} telah tersedia."
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Formula rajut untuk produk '{product.name}' sudah ada.",
                 )
 
-        formula_data = {
-            "product_id": product_id,
-            "formula": [item.model_dump() for item in data.formula],
-            "production_weight": data.production_weight
+        # --- NEW LOGIC: Convert Pydantic objects to dictionaries ---
+        formula_data_for_repo = {
+            "product_id": kf_create.product_id,
+            "production_weight": kf_create.production_weight,
+            # This is the key change:
+            "formula": [item.model_dump() for item in kf_create.formula],
         }
-        new_formula = await self.formula_repo.create(formula_data)
+
+        # Call the updated repository method with the dictionary
+        new_formula = await self.formula_repo.create(kf_create_data=formula_data_for_repo)
+        # ------------------------------------------------------------
         
-        created_formula_with_product = await self.formula_repo.get_by_id(new_formula.id)
-        
+        created_formula = await self.formula_repo.get_by_id(kf_id=new_formula.id)
+
         return SingleKnitFormulaResponse(
-            message="Berhasil membuat formula kain rajut.",
-            data=created_formula_with_product
+            message="Berhasil membuat formula kain rajut.", data=created_formula
         )
 
     async def get_all(self, page: int, limit: int) -> BulkKnitFormulaResponse:
+        """
+        Retrieves a paginated list of knit formulas.
+        """
         items, total_count = await self.formula_repo.get_all(page=page, limit=limit)
+        total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
+        
         return BulkKnitFormulaResponse(
             items=items,
             item_count=total_count,
             page=page,
             limit=limit,
-            total_pages=(total_count + limit - 1) // limit if total_count > 0 else 0
+            total_pages=total_pages,
         )
-        
-    async def get_by_id(self, formula_id: int) -> SingleKnitFormulaResponse:
-        formula = await self.formula_repo.get_by_id(formula_id)
+
+    async def get_by_id(self, kf_id: int) -> SingleKnitFormulaResponse:
+        """
+        Retrieves a single knit formula by its ID.
+        """
+        formula = await self.formula_repo.get_by_id(kf_id=kf_id)
         if not formula:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Formula kain rajut tidak ditemukan.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Formula kain rajut tidak ditemukan.",
+            )
         return SingleKnitFormulaResponse(data=formula)
 
-    async def update(self, formula_id: int, data: KnitFormulaUpdateRequest) -> SingleKnitFormulaResponse:
-        formula_to_update = await self.formula_repo.get_by_id(formula_id)
-        if not formula_to_update:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Formula kain rajut tidak ditemukan.")
+    async def update(
+        self, kf_id: int, kf_update: KnitFormulaUpdateRequest
+    ) -> SingleKnitFormulaResponse:
+        """
+        Updates an existing knit formula.
+        """
+        db_formula = await self.formula_repo.get_by_id(kf_id=kf_id)
+        if not db_formula:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Formula kain rajut tidak ditemukan.",
+            )
 
-        update_dict = data.model_dump(exclude_unset=True)
-        
-        # If the formula items are being updated, re-validate them
-        if 'formula' in update_dict and update_dict['formula']:
-            await self._validate_formula_inventories(data.formula)
+        # If the formula items are being updated, re-validate the inventory IDs
+        if kf_update.formula:
+            await self._validate_formula_inventories(kf_update.formula)
 
-        updated_formula = await self.formula_repo.update(formula_id, update_dict)
+        updated_formula = await self.formula_repo.update(
+            db_kf=db_formula, kf_update=kf_update
+        )
         return SingleKnitFormulaResponse(
-            message="Formula kain rajut berhasil diubah.",
-            data=updated_formula
+            message="Formula kain rajut berhasil diubah.", data=updated_formula
         )
 
-    async def delete(self, formula_id: int) -> BaseSingleResponse:
-        deleted_formula = await self.formula_repo.delete(formula_id)
-        if not deleted_formula:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Formula kain rajut tidak ditemukan.")
-        return BaseSingleResponse(message=f"Formula kain rajut dengan id {formula_id} berhasil dihapus.")
+    async def delete(self, kf_id: int) -> BaseSingleResponse:
+        """
+        Deletes a knit formula.
+        """
+        db_formula = await self.formula_repo.get_by_id(kf_id=kf_id)
+        if not db_formula:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Formula kain rajut tidak ditemukan.",
+            )
+
+        await self.formula_repo.delete(db_kf=db_formula)
+        return BaseSingleResponse(
+            message=f"Formula kain rajut dengan id {kf_id} berhasil dihapus."
+        )

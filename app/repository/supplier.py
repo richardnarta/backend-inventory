@@ -1,112 +1,106 @@
-from typing import List, Optional, Tuple, Dict, Any
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional, List, Tuple
+from sqlmodel import select, func
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.model.supplier import Supplier
-
+from app.schema.supplier.request import SupplierCreateRequest, SupplierUpdateRequest
 
 class SupplierRepository:
-    """Repository for all supplier-related database operations."""
-    
+    """
+    Handles asynchronous database operations for the Supplier model.
+    """
     def __init__(self, session: AsyncSession):
+        """
+        Initializes the repository with an asynchronous database session.
+
+        Args:
+            session: The SQLModel AsyncSession object.
+        """
         self.session = session
 
-    async def create(self, data: Dict[str, Any]) -> Supplier:
+    async def create(self, *, supplier_create: SupplierCreateRequest) -> Supplier:
         """
-        Prepares a new supplier for creation.
-        The commit is handled by the session's lifecycle manager (e.g., a FastAPI dependency).
-        
-        Args:
-            data: A dictionary containing the data for the new supplier.
-                  
-        Returns:
-            The new Supplier object, not yet committed.
-        """
-        new_supplier = Supplier(**data)
-        self.session.add(new_supplier)
-        # The session will be flushed to assign a PK, but not committed.
-        await self.session.flush()
-        return new_supplier
+        Asynchronously creates a new supplier in the database.
 
-    async def get_by_id(self, supplier_id: int) -> Optional[Supplier]:
-        """
-        Retrieves a single supplier by their primary key.
-        
         Args:
-            supplier_id: The unique ID of the supplier.
-            
+            supplier_create: The Pydantic schema with data for the new supplier.
+
         Returns:
-            A Supplier object if found, otherwise None.
+            The newly created Supplier entity.
+        """
+        db_supplier = Supplier.model_validate(supplier_create)
+        self.session.add(db_supplier)
+        await self.session.commit()
+        await self.session.refresh(db_supplier)
+        return db_supplier
+
+    async def get_by_id(self, *, supplier_id: int) -> Optional[Supplier]:
+        """
+        Asynchronously fetches a supplier by their primary key (ID).
+
+        Args:
+            supplier_id: The ID of the supplier to fetch.
+
+        Returns:
+            The Supplier entity if found, otherwise None.
         """
         return await self.session.get(Supplier, supplier_id)
 
     async def get_all(
-        self, 
+        self,
+        *,
         name: Optional[str] = None,
         page: int = 1,
         limit: int = 10
     ) -> Tuple[List[Supplier], int]:
-        """
-        Retrieves a paginated list of suppliers with optional filtering.
-        
-        Args:
-            name: An optional search term to filter suppliers by name (case-insensitive).
-            page: The page number to retrieve.
-            limit: The number of items per page.
-            
-        Returns:
-            A tuple containing a list of Supplier objects for the current page
-            and the total count of suppliers matching the filters.
-        """
-        query = select(Supplier)
+        statement = select(Supplier)
         
         if name:
-            query = query.where(Supplier.name.ilike(f"%{name}%"))
-            
-        count_query = select(func.count()).select_from(query.subquery())
-        total_count_result = await self.session.execute(count_query)
-        total_count = total_count_result.scalar_one()
-        
+            statement = statement.where(Supplier.name.ilike(f"%{name}%"))
+
+        count_statement = select(func.count()).select_from(statement.subquery())
+        count_result = await self.session.execute(count_statement) # CORRECTED LINE
+        total_count = count_result.one()[0]
+
         offset = (page - 1) * limit
-        paginated_query = query.offset(offset).limit(limit)
+        paginated_statement = statement.order_by(Supplier.id).offset(offset).limit(limit)
         
-        result = await self.session.execute(paginated_query)
-        items = result.scalars().all()
+        items_result = await self.session.execute(paginated_statement) # CORRECTED LINE
+        items = items_result.scalars().all()
         
-        return items, total_count
+        return list(items), total_count
 
-    async def update(self, supplier_id: int, data: Dict[str, Any]) -> Optional[Supplier]:
+    async def update(
+        self,
+        *, 
+        db_supplier: Supplier,
+        supplier_update: SupplierUpdateRequest
+    ) -> Supplier:
         """
-        Prepares an existing supplier for an update.
-        The commit is handled by the session's lifecycle manager.
-        
-        Args:
-            supplier_id: The ID of the supplier to update.
-            data: A dictionary with the fields to update.
-                  
-        Returns:
-            The updated Supplier object, not yet committed.
-        """
-        supplier = await self.get_by_id(supplier_id)
-        if supplier:
-            for key, value in data.items():
-                setattr(supplier, key, value)
-        
-        return supplier
+        Asynchronously updates an existing supplier in the database.
 
-    async def delete(self, supplier_id: int) -> Optional[Supplier]:
-        """
-        Prepares a supplier for deletion.
-        The commit is handled by the session's lifecycle manager.
-        
         Args:
-            supplier_id: The ID of the supplier to delete.
-            
+            db_supplier: The existing Supplier entity to update.
+            supplier_update: The Pydantic schema with the updated data.
+
         Returns:
-            The Supplier object to be deleted, or None if not found.
+            The updated Supplier entity.
         """
-        supplier = await self.get_by_id(supplier_id)
-        if supplier:
-            await self.session.delete(supplier)
+        update_data = supplier_update.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_supplier, key, value)
         
-        return supplier
+        self.session.add(db_supplier)
+        await self.session.commit()
+        await self.session.refresh(db_supplier)
+        return db_supplier
+
+    async def delete(self, *, db_supplier: Supplier) -> None:
+        """
+        Asynchronously deletes a supplier from the database.
+
+        Args:
+            db_supplier: The Supplier entity to delete.
+        """
+        await self.session.delete(db_supplier)
+        await self.session.commit()

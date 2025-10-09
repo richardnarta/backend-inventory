@@ -1,148 +1,162 @@
-from typing import Optional, Dict, Any
+from typing import Optional
 from datetime import date
 from fastapi import HTTPException, status
 
+from app.model.inventory import InventoryType
 from app.repository.purchase_transaction import PurchaseTransactionRepository
-from app.repository.supplier import SupplierRepository
 from app.repository.inventory import InventoryRepository
-# The Pydantic request models
-from app.schema.request.purchase_transaction import PurchaseTransactionCreateRequest, PurchaseTransactionUpdateRequest
-# The Pydantic response models
-from app.schema.response.purchase_transaction import (
-    BulkPurchaseTransactionResponse, 
-    SinglePurchaseTransactionResponse,
-    BaseSingleResponse
+from app.repository.supplier import SupplierRepository
+from app.schema.purchase_transaction.request import (
+    PurchaseTransactionCreateRequest,
+    PurchaseTransactionUpdateRequest,
 )
+from app.schema.purchase_transaction.response import (
+    BulkPurchaseTransactionResponse,
+    SinglePurchaseTransactionResponse,
+)
+from app.schema.base_response import BaseSingleResponse
 
 class PurchaseTransactionService:
-    """Service class for purchase transaction-related business logic using Pydantic."""
+    """Service class for purchase transaction-related business logic."""
 
     def __init__(
-        self, 
-        transaction_repo: PurchaseTransactionRepository, 
-        supplier_repo: SupplierRepository, 
-        inventory_repo: InventoryRepository
+        self,
+        pt_repo: PurchaseTransactionRepository,
+        inventory_repo: InventoryRepository,
+        supplier_repo: SupplierRepository,
     ):
-        self.transaction_repo = transaction_repo
-        self.supplier_repo = supplier_repo
+        self.pt_repo = pt_repo
         self.inventory_repo = inventory_repo
+        self.supplier_repo = supplier_repo
 
     async def get_all(
-        self, 
-        supplier_id: Optional[int], 
-        inventory_id: Optional[str], 
-        start_date: Optional[date], 
-        end_date: Optional[date],
-        dyed: Optional[bool],
-        page: int, 
-        limit: int
+        self,
+        page: int,
+        limit: int,
+        supplier_id: Optional[int] = None,
+        inventory_id: Optional[str] = None,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        inventory_type: Optional[InventoryType] = None,
     ) -> BulkPurchaseTransactionResponse:
-        """
-        Retrieves a paginated list of transactions and formats the response.
-        """
-        items, total_count = await self.transaction_repo.get_all(
+        """Retrieves a paginated list of purchase transactions."""
+        items, total_count = await self.pt_repo.get_all(
+            page=page,
+            limit=limit,
             supplier_id=supplier_id,
             inventory_id=inventory_id,
             start_date=start_date,
             end_date=end_date,
-            dyed=dyed,
-            page=page, 
-            limit=limit
+            inventory_type=inventory_type,
         )
         total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
-        
+
         return BulkPurchaseTransactionResponse(
             items=items,
             item_count=total_count,
             page=page,
             limit=limit,
-            total_pages=total_pages
+            total_pages=total_pages,
         )
 
-    async def get_by_id(self, transaction_id: int) -> SinglePurchaseTransactionResponse:
-        """
-        Retrieves a single transaction by its ID.
-        Raises an HTTPException if the transaction is not found.
-        """
-        transaction = await self.transaction_repo.get_by_id(transaction_id)
+    async def get_by_id(self, pt_id: int) -> SinglePurchaseTransactionResponse:
+        """Retrieves a single purchase transaction by its ID."""
+        transaction = await self.pt_repo.get_by_id(pt_id=pt_id)
         if not transaction:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Transaksi tidak ditemukan."
+                detail="Transaksi pembelian tidak ditemukan.",
             )
         return SinglePurchaseTransactionResponse(data=transaction)
 
-    async def create(self, data: PurchaseTransactionCreateRequest) -> SinglePurchaseTransactionResponse:
+    async def create(
+        self, pt_create: PurchaseTransactionCreateRequest
+    ) -> SinglePurchaseTransactionResponse:
         """
-        Creates a new transaction.
+        Creates a new purchase transaction and increases inventory stock.
         """
-        item_dict = data.model_dump()
-        
-        # Check fk availability
-        supplier = await self.supplier_repo.get_by_id(item_dict.get('supplier_id'))
+        # Validate foreign keys
+        supplier = await self.supplier_repo.get_by_id(supplier_id=pt_create.supplier_id)
         if not supplier:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Supplier tidak ditemukan."
+                detail="Supplier tidak ditemukan.",
             )
-            
-        inventory = await self.inventory_repo.get_by_id(item_dict.get('inventory_id'))
+        
+        inventory = await self.inventory_repo.get_by_id(inventory_id=pt_create.inventory_id)
         if not inventory:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Barang tidak ditemukan."
+                detail="Barang (inventory) tidak ditemukan.",
             )
         
-        new_transaction = await self.transaction_repo.create(item_dict)
+        # Business Logic: Increase inventory stock
+        inventory.roll_count = (inventory.roll_count or 0) + (pt_create.roll_count or 0)
+        inventory.weight_kg = (inventory.weight_kg or 0) + (pt_create.weight_kg or 0)
+        inventory.bale_count = (inventory.bale_count or 0) + (pt_create.bale_count or 0)
+
+        new_transaction = await self.pt_repo.create(pt_create=pt_create)
         return SinglePurchaseTransactionResponse(
-            message="Berhasil menambahkan transaksi.",
-            data=new_transaction
+            message="Berhasil mencatat transaksi pembelian.", data=new_transaction
         )
 
-    async def update(self, transaction_id: int, data: PurchaseTransactionUpdateRequest) -> SinglePurchaseTransactionResponse:
+    async def update(
+        self, pt_id: int, pt_update: PurchaseTransactionUpdateRequest
+    ) -> SinglePurchaseTransactionResponse:
         """
-        Updates an existing transaction.
-        Raises an HTTPException if the transaction is not found.
+        Updates a purchase transaction and adjusts inventory stock accordingly.
         """
-        transaction = await self.transaction_repo.get_by_id(transaction_id)
-        if not transaction:
+        db_transaction = await self.pt_repo.get_by_id(pt_id=pt_id)
+        if not db_transaction:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Transaksi tidak ditemukan."
-            )
-            
-        update_dict = data.model_dump(exclude_unset=True)
-        
-        # Check fk availability
-        supplier = await self.supplier_repo.get_by_id(update_dict.get('supplier_id'))
-        if not supplier and update_dict.get('supplier_id'):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Supplier tidak ditemukan."
-            )
-            
-        inventory = await self.inventory_repo.get_by_id(update_dict.get('inventory_id'))
-        if not inventory and update_dict.get('inventory_id'):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Barang tidak ditemukan."
+                detail="Transaksi pembelian tidak ditemukan.",
             )
         
-        updated_transaction = await self.transaction_repo.update(transaction_id, update_dict)
+        # Business Logic: Adjust inventory stock based on the difference
+        inventory = await self.inventory_repo.get_by_id(inventory_id=db_transaction.inventory_id)
+        if not inventory:
+             raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Barang (inventory) terkait transaksi ini tidak ditemukan, update dibatalkan.",
+            )
+
+        # Calculate differences
+        roll_diff = (pt_update.roll_count or db_transaction.roll_count) - (db_transaction.roll_count or 0)
+        weight_diff = (pt_update.weight_kg or db_transaction.weight_kg) - (db_transaction.weight_kg or 0)
+        bale_diff = (pt_update.bale_count or db_transaction.bale_count) - (db_transaction.bale_count or 0)
+
+        # Apply differences to stock
+        inventory.roll_count = (inventory.roll_count or 0) + roll_diff
+        inventory.weight_kg = (inventory.weight_kg or 0) + weight_diff
+        inventory.bale_count = (inventory.bale_count or 0) + bale_diff
+        
+        updated_transaction = await self.pt_repo.update(
+            db_pt=db_transaction, pt_update=pt_update
+        )
         return SinglePurchaseTransactionResponse(
-            message="Berhasil mengupdate data transaksi.",
-            data=updated_transaction
+            message="Berhasil mengupdate transaksi pembelian.", data=updated_transaction
         )
 
-    async def delete(self, transaction_id: int) -> BaseSingleResponse:
+    async def delete(self, pt_id: int) -> BaseSingleResponse:
         """
-        Deletes a transaction.
-        Raises an HTTPException if the transaction is not found.
+        Deletes a purchase transaction and reverses its effect on inventory stock.
         """
-        deleted_transaction = await self.transaction_repo.delete(transaction_id)
-        if not deleted_transaction:
+        db_transaction = await self.pt_repo.get_by_id(pt_id=pt_id)
+        if not db_transaction:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Transaksi tidak ditemukan."
+                detail="Transaksi pembelian tidak ditemukan.",
             )
-        return BaseSingleResponse(message=f"Berhasil menghapus transaksi dengan id {transaction_id}.")
+        
+        # Business Logic: Revert inventory stock changes
+        inventory = await self.inventory_repo.get_by_id(inventory_id=db_transaction.inventory_id)
+        if inventory:
+            inventory.roll_count = (inventory.roll_count or 0) - (db_transaction.roll_count or 0)
+            inventory.weight_kg = (inventory.weight_kg or 0) - (db_transaction.weight_kg or 0)
+            inventory.bale_count = (inventory.bale_count or 0) - (db_transaction.bale_count or 0)
+
+        await self.pt_repo.delete(db_pt=db_transaction)
+        return BaseSingleResponse(
+            message=f"Berhasil menghapus transaksi pembelian dengan id {pt_id}."
+        )

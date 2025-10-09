@@ -1,42 +1,121 @@
 from typing import Optional
 from fastapi import HTTPException, status
+
 from app.repository.machine import MachineRepository
-from app.schema.request.machine import MachineCreateRequest, MachineUpdateRequest
-from app.schema.response.machine import BulkMachineResponse, SingleMachineResponse, BaseSingleResponse
+from app.schema.machine.request import MachineCreateRequest, MachineUpdateRequest
+from app.schema.machine.response import (
+    BulkMachineResponse,
+    SingleMachineResponse,
+)
+from app.schema.base_response import BaseSingleResponse
 
 class MachineService:
-    def __init__(self, repo: MachineRepository):
-        self.repo = repo
+    """Service class for machine-related business logic."""
 
-    async def get_all(self, name: Optional[str], page: int, limit: int) -> BulkMachineResponse:
-        items, total_count = await self.repo.get_all(name=name, page=page, limit=limit)
+    def __init__(self, machine_repo: MachineRepository):
+        """
+        Initializes the service with the machine repository.
+        
+        Args:
+            machine_repo: The repository for machine data.
+        """
+        self.machine_repo = machine_repo
+
+    async def get_all(
+        self,
+        name: Optional[str],
+        page: int,
+        limit: int,
+    ) -> BulkMachineResponse:
+        """
+        Retrieves a paginated list of machines and formats the response.
+        """
+        items, total_count = await self.machine_repo.get_all(
+            name=name, page=page, limit=limit
+        )
+        total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
+
         return BulkMachineResponse(
             items=items,
             item_count=total_count,
             page=page,
             limit=limit,
-            total_pages=(total_count + limit - 1) // limit if total_count > 0 else 0
+            total_pages=total_pages,
         )
 
     async def get_by_id(self, machine_id: int) -> SingleMachineResponse:
-        machine = await self.repo.get_by_id(machine_id)
+        """
+        Retrieves a single machine by its ID.
+        Raises an HTTPException if the machine is not found.
+        """
+        machine = await self.machine_repo.get_by_id(machine_id=machine_id)
         if not machine:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mesin tidak ditemukan.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Mesin tidak ditemukan.",
+            )
         return SingleMachineResponse(data=machine)
 
-    async def create(self, data: MachineCreateRequest) -> SingleMachineResponse:
-        new_machine = await self.repo.create(data.model_dump())
-        return SingleMachineResponse(message="Mesin baru berhasil ditambahkan.", data=new_machine)
+    async def create(self, machine_create: MachineCreateRequest) -> SingleMachineResponse:
+        """
+        Creates a new machine after validating the name is unique.
+        """
+        # This check requires a `get_by_name` method in the repository.
+        existing_machine = await self.machine_repo.get_by_name(name=machine_create.name)
+        if existing_machine:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Mesin dengan nama '{machine_create.name}' sudah ada.",
+            )
 
-    async def update(self, machine_id: int, data: MachineUpdateRequest) -> SingleMachineResponse:
-        if not await self.repo.get_by_id(machine_id):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mesin tidak ditemukan.")
-        
-        update_dict = data.model_dump(exclude_unset=True)
-        updated_machine = await self.repo.update(machine_id, update_dict)
-        return SingleMachineResponse(message="Data Mesin berhasil diubah.", data=updated_machine)
+        new_machine = await self.machine_repo.create(machine_create=machine_create)
+        return SingleMachineResponse(
+            message="Berhasil menambahkan data mesin.", data=new_machine
+        )
+
+    async def update(
+        self, machine_id: int, machine_update: MachineUpdateRequest
+    ) -> SingleMachineResponse:
+        """
+        Updates an existing machine.
+        Raises an HTTPException if the machine is not found or the new name is taken.
+        """
+        db_machine = await self.machine_repo.get_by_id(machine_id=machine_id)
+        if not db_machine:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Mesin tidak ditemukan.",
+            )
+
+        # If name is being updated, check for uniqueness
+        if machine_update.name and machine_update.name != db_machine.name:
+            existing_machine = await self.machine_repo.get_by_name(name=machine_update.name)
+            if existing_machine:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Mesin dengan nama '{machine_update.name}' sudah ada.",
+                )
+
+        updated_machine = await self.machine_repo.update(
+            db_machine=db_machine, machine_update=machine_update
+        )
+        return SingleMachineResponse(
+            message="Berhasil mengupdate data mesin.", data=updated_machine
+        )
 
     async def delete(self, machine_id: int) -> BaseSingleResponse:
-        if not await self.repo.delete(machine_id):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mesin tidak ditemukan.")
-        return BaseSingleResponse(message=f"Mesin dengan id {machine_id} berhasil dihapus.")
+        """
+        Deletes a machine.
+        Raises an HTTPException if the machine is not found.
+        """
+        db_machine = await self.machine_repo.get_by_id(machine_id=machine_id)
+        if not db_machine:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Mesin tidak ditemukan.",
+            )
+
+        await self.machine_repo.delete(db_machine=db_machine)
+        return BaseSingleResponse(
+            message=f"Berhasil menghapus data mesin dengan id {machine_id}."
+        )

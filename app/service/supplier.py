@@ -2,35 +2,45 @@ from typing import Optional
 from fastapi import HTTPException, status
 
 from app.repository.supplier import SupplierRepository
-from app.model.supplier import Supplier # The DB model
-# The Pydantic request models
-from app.schema.request.supplier import SupplierCreateRequest, SupplierUpdateRequest
-# The Pydantic response models
-from app.schema.response.supplier import (
-    BulkSupplierResponse, 
+from app.schema.supplier.request import SupplierCreateRequest, SupplierUpdateRequest
+from app.schema.supplier.response import (
+    BulkSupplierResponse,
     SingleSupplierResponse,
-    BaseSingleResponse
 )
+from app.schema.base_response import BaseSingleResponse
 
 class SupplierService:
-    """Service class for supplier-related business logic using Pydantic."""
+    """Service class for supplier-related business logic."""
 
     def __init__(self, supplier_repo: SupplierRepository):
+        """
+        Initializes the service with the supplier repository.
+
+        Args:
+            supplier_repo: The repository for supplier data.
+        """
         self.supplier_repo = supplier_repo
 
-    async def get_all(self, name: Optional[str], page: int, limit: int) -> BulkSupplierResponse:
+    async def get_all(
+        self,
+        name: Optional[str],
+        page: int,
+        limit: int,
+    ) -> BulkSupplierResponse:
         """
         Retrieves a paginated list of suppliers and formats the response.
         """
-        items, total_count = await self.supplier_repo.get_all(name=name, page=page, limit=limit)
+        items, total_count = await self.supplier_repo.get_all(
+            name=name, page=page, limit=limit
+        )
         total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
-        
+
         return BulkSupplierResponse(
             items=items,
             item_count=total_count,
             page=page,
             limit=limit,
-            total_pages=total_pages
+            total_pages=total_pages,
         )
 
     async def get_by_id(self, supplier_id: int) -> SingleSupplierResponse:
@@ -38,42 +48,42 @@ class SupplierService:
         Retrieves a single supplier by their ID.
         Raises an HTTPException if the supplier is not found.
         """
-        supplier = await self.supplier_repo.get_by_id(supplier_id)
+        supplier = await self.supplier_repo.get_by_id(supplier_id=supplier_id)
         if not supplier:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Supplier tidak ditemukan."
+                detail="Supplier tidak ditemukan.",
             )
         return SingleSupplierResponse(data=supplier)
 
-    async def create(self, data: SupplierCreateRequest) -> SingleSupplierResponse:
+    async def create(self, supplier_create: SupplierCreateRequest) -> SingleSupplierResponse:
         """
         Creates a new supplier.
         """
-        item_dict = data.model_dump()
-        new_supplier = await self.supplier_repo.create(item_dict)
+        new_supplier = await self.supplier_repo.create(supplier_create=supplier_create)
         return SingleSupplierResponse(
-            message="Berhasil menambahkan supplier.",
-            data=new_supplier
+            message="Berhasil menambahkan data supplier.", data=new_supplier
         )
 
-    async def update(self, supplier_id: int, data: SupplierUpdateRequest) -> SingleSupplierResponse:
+    async def update(
+        self, supplier_id: int, supplier_update: SupplierUpdateRequest
+    ) -> SingleSupplierResponse:
         """
         Updates an existing supplier.
         Raises an HTTPException if the supplier is not found.
         """
-        supplier = await self.supplier_repo.get_by_id(supplier_id)
-        if not supplier:
+        db_supplier = await self.supplier_repo.get_by_id(supplier_id=supplier_id)
+        if not db_supplier:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Supplier tidak ditemukan."
+                detail="Supplier tidak ditemukan.",
             )
-            
-        update_dict = data.model_dump(exclude_unset=True)
-        updated_supplier = await self.supplier_repo.update(supplier_id, update_dict)
+
+        updated_supplier = await self.supplier_repo.update(
+            db_supplier=db_supplier, supplier_update=supplier_update
+        )
         return SingleSupplierResponse(
-            message="Berhasil mengupdate data supplier.",
-            data=updated_supplier
+            message="Berhasil mengupdate data supplier.", data=updated_supplier
         )
 
     async def delete(self, supplier_id: int) -> BaseSingleResponse:
@@ -81,10 +91,14 @@ class SupplierService:
         Deletes a supplier.
         Raises an HTTPException if the supplier is not found.
         """
-        deleted_supplier = await self.supplier_repo.delete(supplier_id)
-        if not deleted_supplier:
+        db_supplier = await self.supplier_repo.get_by_id(supplier_id=supplier_id)
+        if not db_supplier:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Supplier tidak ditemukan."
+                detail="Supplier tidak ditemukan.",
             )
-        return BaseSingleResponse(message=f"Berhasil menghapus supplier dengan id {supplier_id}.")
+
+        await self.supplier_repo.delete(db_supplier=db_supplier)
+        return BaseSingleResponse(
+            message=f"Berhasil menghapus data supplier dengan id {supplier_id}."
+        )

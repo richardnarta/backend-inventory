@@ -1,137 +1,76 @@
 from fastapi import APIRouter
 
-from app.api.endpoints.inventory import router as inventory
-from app.api.endpoints.buyer import router as buyer
-from app.api.endpoints.sales_transaction import router as transaction
-from app.api.endpoints.account_receivable import router as receivable
-from app.api.endpoints.supplier import router as supplier
-from app.api.endpoints.purchase_transaction import router as purchase
-from app.api.endpoints.machine import router as machine
-from app.api.endpoints.machine_activity import router as machine_activity
-from app.api.endpoints.knit_formula import router as knit_formula
-from app.api.endpoints.knitting_process import router as knitting_process
+# Import all the endpoint routers we have created
+from app.api.endpoints.account_receivable import router as account_receivable_router
+from app.api.endpoints.buyer import router as buyer_router
+from app.api.endpoints.dyeing_process import router as dyeing_process_router
+from app.api.endpoints.inventory import router as inventory_router
+from app.api.endpoints.knit_formula import router as knit_formula_router
+from app.api.endpoints.knitting_process import router as knitting_process_router
+from app.api.endpoints.machine import router as machine_router
+from app.api.endpoints.operator import router as operator_router
+from app.api.endpoints.purchase_transaction import router as purchase_transaction_router
+from app.api.endpoints.sales_transaction import router as sales_transaction_router
+from app.api.endpoints.supplier import router as supplier_router
 
 
 # Create main API router
 api_router = APIRouter()
 
-# ===== EXISTING ENDPOINTS =====
+# Define common error responses
+common_responses = {
+    404: {"description": "Not Found Error"},
+    422: {"description": "Validation Error"},
+    500: {"description": "Internal Server Error"},
+}
+
+# Include all the routers with their correct prefixes and tags
 api_router.include_router(
-    inventory,
-    prefix="/inventory",
-    tags=["Inventory"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    account_receivable_router,
+    # No prefix, as the router itself has "/account-receivables"
+    responses=common_responses,
 )
-
-
 api_router.include_router(
-    buyer,
-    prefix="/buyer",
-    tags=["Buyer"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    buyer_router,
+    responses=common_responses,
 )
-
-
 api_router.include_router(
-    transaction,
-    prefix="/transaction",
-    tags=["Sales Transaction"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    dyeing_process_router,
+    responses=common_responses,
 )
-
-
 api_router.include_router(
-    supplier,
-    prefix="/supplier",
-    tags=["Supplier"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    inventory_router,
+    responses=common_responses,
 )
-
-
 api_router.include_router(
-    purchase,
-    prefix="/transaction",
-    tags=["Purchase Transaction"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    knit_formula_router,
+    responses=common_responses,
 )
-
-
 api_router.include_router(
-    receivable,
-    prefix="/acc-receivable",
-    tags=["Account Receivable"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    knitting_process_router,
+    responses=common_responses,
 )
-
 api_router.include_router(
-    machine,
-    prefix="/machine",
-    tags=["Machine"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    machine_router,
+    responses=common_responses,
 )
-
 api_router.include_router(
-    machine_activity,
-    prefix="/machine-activity",
-    tags=["Machine Activity"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    operator_router,
+    responses=common_responses,
 )
-
 api_router.include_router(
-    knit_formula,
-    prefix="/knit-formula",
-    tags=["Knit Formula"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    purchase_transaction_router,
+    responses=common_responses,
 )
-
 api_router.include_router(
-    knitting_process,
-    prefix="/knit",
-    tags=["Knitting Process"],
-    responses={
-        404: {"description": "Not Found Error"},
-        422: {"description": "Validation Error"},
-        500: {"description": "Internal Server Error"},
-    }
+    sales_transaction_router,
+    responses=common_responses,
 )
-
+api_router.include_router(
+    supplier_router,
+    responses=common_responses,
+)
 
 def get_api_router():
-    """Get configured API router dengan semua endpoints."""
+    """Get the configured API router with all endpoints included."""
     return api_router

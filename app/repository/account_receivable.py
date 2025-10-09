@@ -1,131 +1,115 @@
-from typing import List, Optional, Tuple, Dict, Any
-from sqlalchemy import select, func, asc
+from typing import Optional, List, Tuple
+from sqlmodel import select, func
+from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.model.account_receivable import AccountReceivable
+from app.schema.account_receivable.request import (
+    AccountReceivableCreateRequest,
+    AccountReceivableUpdateRequest,
+)
 
 class AccountReceivableRepository:
-    """Repository for all account receivable-related database operations."""
-    
+    """
+    Handles asynchronous database operations for the AccountReceivable model.
+    """
+
     def __init__(self, session: AsyncSession):
+        """
+        Initializes the repository with an asynchronous database session.
+
+        Args:
+            session: The SQLModel AsyncSession object.
+        """
         self.session = session
 
-    async def create(self, data: Dict[str, Any]) -> AccountReceivable:
+    async def create(
+        self, *, ar_create: AccountReceivableCreateRequest
+    ) -> AccountReceivable:
         """
-        Prepares a new account receivable record for creation.
-        The commit is handled by the session's lifecycle manager.
-        
-        Args:
-            data: A dictionary containing the data for the new record.
-                  
-        Returns:
-            The new AccountReceivable object, not yet committed.
-        """
-        new_receivable = AccountReceivable(**data)
-        self.session.add(new_receivable)
-        await self.session.flush()
-        return new_receivable
+        Asynchronously creates a new account receivable record.
 
-    async def get_by_id(self, receivable_id: int) -> Optional[AccountReceivable]:
-        """
-        Retrieves a single account receivable record by its primary key,
-        eagerly loading the related buyer object.
-        
         Args:
-            receivable_id: The unique ID of the record.
-            
+            ar_create: The Pydantic schema with data for the new record.
+
         Returns:
-            An AccountReceivable object if found, otherwise None.
+            The newly created AccountReceivable entity.
         """
-        # Create a select statement with the eager loading option
-        query = (
+        db_ar = AccountReceivable.model_validate(ar_create)
+        self.session.add(db_ar)
+        await self.session.commit()
+        await self.session.refresh(db_ar)
+        return db_ar
+
+    async def get_by_id(self, *, ar_id: int) -> Optional[AccountReceivable]:
+        # UPDATE THIS METHOD
+        statement = (
             select(AccountReceivable)
-            .where(AccountReceivable.id == receivable_id)
-            .options(selectinload(AccountReceivable.buyer))  # Assuming the relationship is named 'buyer'
-        )
-        
-        # Execute the query
-        result = await self.session.execute(query)
-        
-        # Get the Row object
-        receivable_row = result.one_or_none()
-        
-        # Return the AccountReceivable model from the row, or None
-        return receivable_row[0] if receivable_row else None
-
-    async def get_all(
-        self, 
-        buyer_id: Optional[str] = None,
-        period: Optional[str] = None,
-        page: int = 1,
-        limit: int = 10
-    ) -> Tuple[List[AccountReceivable], int]:
-        """
-        Retrieves a paginated list of account receivable records with 
-        optional filtering, eagerly loading the related buyer data.
-        """
-        query = select(AccountReceivable)
-        
-        # Apply filters
-        if buyer_id:
-            query = query.where(AccountReceivable.buyer_id == buyer_id)
-        if period:
-            query = query.where(AccountReceivable.period == period)
-            
-        query = query.order_by(asc(AccountReceivable.id))
-            
-        # This count query is efficient and does not need to change
-        count_query = select(func.count()).select_from(query.subquery())
-        total_count_result = await self.session.execute(count_query)
-        total_count = total_count_result.scalar_one()
-        
-        offset = (page - 1) * limit
-        
-        paginated_query = (
-            query.offset(offset)
-            .limit(limit)
+            .where(AccountReceivable.id == ar_id)
             .options(selectinload(AccountReceivable.buyer))
         )
-        
-        result = await self.session.execute(paginated_query)
-        items = result.scalars().all()
-        
-        return items, total_count
+        result = await self.session.execute(statement)
+        return result.scalars().one_or_none()
 
-    async def update(self, receivable_id: int, data: Dict[str, Any]) -> Optional[AccountReceivable]:
+    async def get_all(
+        self,
+        *,
+        buyer_id: Optional[int] = None,
+        period: Optional[str] = None,
+        page: int = 1,
+        limit: int = 10,
+    ) -> Tuple[List[AccountReceivable], int]:
+        # UPDATE THIS LINE
+        statement = select(AccountReceivable).options(selectinload(AccountReceivable.buyer))
+
+        if buyer_id is not None:
+            statement = statement.where(AccountReceivable.buyer_id == buyer_id)
+        if period:
+            statement = statement.where(AccountReceivable.period.ilike(f"%{period}%"))
+
+        count_statement = select(func.count()).select_from(statement.subquery())
+        count_result = await self.session.execute(count_statement)
+        total_count = count_result.scalar_one()
+
+        offset = (page - 1) * limit
+        paginated_statement = statement.order_by(AccountReceivable.id).offset(offset).limit(limit)
+
+        items_result = await self.session.execute(paginated_statement)
+        items = items_result.scalars().all()
+
+        return list(items), total_count
+
+    async def update(
+        self,
+        *,
+        db_ar: AccountReceivable,
+        ar_update: AccountReceivableUpdateRequest,
+    ) -> AccountReceivable:
         """
-        Prepares an existing account receivable record for an update.
-        The commit is handled by the session's lifecycle manager.
-        
+        Asynchronously updates an existing account receivable record.
+
         Args:
-            receivable_id: The ID of the record to update.
-            data: A dictionary with the fields to update.
-                  
-        Returns:
-            The updated AccountReceivable object, not yet committed.
-        """
-        receivable = await self.get_by_id(receivable_id)
-        if receivable:
-            for key, value in data.items():
-                setattr(receivable, key, value)
-        
-        return receivable
+            db_ar: The existing AccountReceivable entity to update.
+            ar_update: The Pydantic schema with the updated data.
 
-    async def delete(self, receivable_id: int) -> Optional[AccountReceivable]:
+        Returns:
+            The updated AccountReceivable entity.
         """
-        Prepares an account receivable record for deletion.
-        The commit is handled by the session's lifecycle manager.
-        
+        update_data = ar_update.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_ar, key, value)
+
+        self.session.add(db_ar)
+        await self.session.commit()
+        await self.session.refresh(db_ar)
+        return db_ar
+
+    async def delete(self, *, db_ar: AccountReceivable) -> None:
+        """
+        Asynchronously deletes an account receivable record from the database.
+
         Args:
-            receivable_id: The ID of the record to delete.
-            
-        Returns:
-            The AccountReceivable object to be deleted, or None if not found.
+            db_ar: The AccountReceivable entity to delete.
         """
-        receivable = await self.get_by_id(receivable_id)
-        if receivable:
-            await self.session.delete(receivable)
-        
-        return receivable
-
+        await self.session.delete(db_ar)
+        await self.session.commit()

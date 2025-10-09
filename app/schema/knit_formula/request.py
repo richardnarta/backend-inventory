@@ -21,18 +21,15 @@ class KnitFormulaCreateRequest(BaseModel):
     @model_validator(mode='after')
     def check_product_logic(self) -> 'KnitFormulaCreateRequest':
         is_new = self.new_product
-        product_id = self.product_id
-        product_name = self.product_name
-
         if is_new:
-            if not product_name:
+            if not self.product_name:
                 raise ValueError("product_name is required when new_product is true")
-            if product_id:
+            if self.product_id:
                 raise ValueError("product_id must be null when new_product is true")
         else:
-            if not product_id:
+            if not self.product_id:
                 raise ValueError("product_id is required when new_product is false")
-            if product_name:
+            if self.product_name:
                 raise ValueError("product_name must be null when new_product is false")
         
         return self
@@ -40,4 +37,4 @@ class KnitFormulaCreateRequest(BaseModel):
 class KnitFormulaUpdateRequest(BaseModel):
     """Pydantic model for updating a knit formula."""
     formula: Optional[List[FormulaItemBase]] = None
-    production_weight: Optional[float] = Field(0.0, ge=0)
+    production_weight: Optional[float] = Field(None, ge=0)
