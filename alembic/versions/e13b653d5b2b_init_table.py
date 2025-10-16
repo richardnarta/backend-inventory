@@ -24,7 +24,7 @@ def upgrade() -> None:
     
     # Create ENUM type for InventoryType
     inventory_type_enum = sa.Enum('FABRIC', 'THREAD', name='inventorytype')
-    inventory_type_enum.create(op.get_bind(), checkfirst=True)
+    # inventory_type_enum.create(op.get_bind(), checkfirst=True)
     
     # --- Create Tables with No Foreign Key Dependencies on other new tables ---
     op.create_table('buyer',
@@ -231,5 +231,5 @@ def downgrade() -> None:
 
     # Drop the ENUM type
     inventory_type_enum = sa.Enum('FABRIC', 'THREAD', name='inventorytype')
-    inventory_type_enum.drop(op.get_bind(), checkfirst=True)
+    # inventory_type_enum.drop(op.get_bind(), checkfirst=True)
     # ### end Alembic commands ###

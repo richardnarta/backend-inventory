@@ -126,3 +126,29 @@ class KnittingProcessRepository:
         """
         await self.session.delete(db_kp)
         await self.session.commit()
+        
+    async def get_all_pending_material_ids(self) -> set[str]:
+        """
+        Retrieves a unique set of inventory IDs for all materials that are part of
+        an active (pending) knitting process (knit_status = False).
+
+        This is used to prevent operations on stock that is currently allocated.
+
+        Returns:
+            A set of unique inventory IDs (str).
+        """
+        # 1. Pilih semua proses yang statusnya belum selesai (False)
+        statement = select(KnittingProcess).where(KnittingProcess.knit_status == False)
+        result = await self.session.execute(statement)
+        pending_processes = result.scalars().all()
+
+        # 2. Ekstrak semua ID inventaris dari kolom 'materials'
+        allocated_material_ids = set()
+        for process in pending_processes:
+            if process.materials: # Pastikan 'materials' tidak kosong
+                for material in process.materials:
+                    inventory_id = material.get("inventory_id")
+                    if inventory_id:
+                        allocated_material_ids.add(inventory_id)
+        
+        return allocated_material_ids

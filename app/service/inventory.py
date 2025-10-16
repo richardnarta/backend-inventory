@@ -1,7 +1,10 @@
+# app/service/inventory_service.py
+
 from typing import Optional
 from fastapi import HTTPException, status
 
-from app.repository.inventory import InventoryRepository
+from app.repository.inventory import InventoryRepository, BALE_TO_KG_RATIO
+from app.model.inventory import Inventory, InventoryType
 from app.schema.inventory.request import InventoryCreateRequest, InventoryUpdateRequest
 from app.schema.inventory.response import (
     BulkInventoryResponse,
@@ -10,15 +13,8 @@ from app.schema.inventory.response import (
 from app.schema.base_response import BaseSingleResponse
 
 class InventoryService:
-    """Service class for inventory-related business logic."""
-
+    # ... (metode __init__, get_all, get_by_id tidak berubah) ...
     def __init__(self, inventory_repo: InventoryRepository):
-        """
-        Initializes the service with the inventory repository.
-
-        Args:
-            inventory_repo: The repository for inventory data.
-        """
         self.inventory_repo = inventory_repo
 
     async def get_all(
@@ -29,9 +25,6 @@ class InventoryService:
         page: int,
         limit: int,
     ) -> BulkInventoryResponse:
-        """
-        Retrieves a paginated list of inventory items and formats the response.
-        """
         items, total_count = await self.inventory_repo.get_all(
             name=name, id=id, type=type, page=page, limit=limit
         )
@@ -46,10 +39,6 @@ class InventoryService:
         )
 
     async def get_by_id(self, inventory_id: str) -> SingleInventoryResponse:
-        """
-        Retrieves a single inventory item by its ID.
-        Raises an HTTPException if the item is not found.
-        """
         inventory = await self.inventory_repo.get_by_id(inventory_id=inventory_id)
         if not inventory:
             raise HTTPException(
@@ -62,9 +51,9 @@ class InventoryService:
         self, inventory_create: InventoryCreateRequest
     ) -> SingleInventoryResponse:
         """
-        Creates a new inventory item after validating the ID is unique.
+        Creates a new inventory item, setting a default bale_ratio and
+        calculating the initial bale_count for threads.
         """
-        # Check if an inventory item with this ID already exists
         existing_item = await self.inventory_repo.get_by_id(
             inventory_id=inventory_create.id
         )
@@ -74,20 +63,28 @@ class InventoryService:
                 detail=f"Barang (inventory) dengan ID '{inventory_create.id}' sudah ada.",
             )
 
-        new_inventory = await self.inventory_repo.create(
-            inventory_create=inventory_create
-        )
+        db_inventory = Inventory.model_validate(inventory_create)
+
+        # --- LOGIKA YANG DISEMPURNAKAN ---
+        if db_inventory.type == InventoryType.THREAD:
+            # Jika user tidak mengisi bale_ratio, atur ke nilai standar
+            if not db_inventory.bale_ratio or db_inventory.bale_ratio <= 0:
+                db_inventory.bale_ratio = BALE_TO_KG_RATIO
+            
+            # Lakukan perhitungan awal
+            calculated_bales = (db_inventory.weight_kg or 0) / db_inventory.bale_ratio
+            db_inventory.bale_count = round(calculated_bales, 3)
+        # ---------------------------------------------
+
+        new_inventory = await self.inventory_repo.create(db_inventory=db_inventory)
         return SingleInventoryResponse(
             message="Berhasil menambahkan data barang.", data=new_inventory
         )
 
+    # ... (metode update dan delete tidak perlu diubah dari versi Anda) ...
     async def update(
         self, inventory_id: str, inventory_update: InventoryUpdateRequest
     ) -> SingleInventoryResponse:
-        """
-        Updates an existing inventory item.
-        Raises an HTTPException if the item is not found.
-        """
         db_inventory = await self.inventory_repo.get_by_id(inventory_id=inventory_id)
         if not db_inventory:
             raise HTTPException(
@@ -103,10 +100,6 @@ class InventoryService:
         )
 
     async def delete(self, inventory_id: str) -> BaseSingleResponse:
-        """
-        Deletes an inventory item.
-        Raises an HTTPException if the item is not found.
-        """
         db_inventory = await self.inventory_repo.get_by_id(inventory_id=inventory_id)
         if not db_inventory:
             raise HTTPException(

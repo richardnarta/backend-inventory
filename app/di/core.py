@@ -89,12 +89,16 @@ def get_sales_transaction_service(
 def get_purchase_transaction_repo(session: AsyncSession = Depends(get_db)) -> PurchaseTransactionRepository:
     return PurchaseTransactionRepository(session)
 
+def get_knitting_process_repo(session: AsyncSession = Depends(get_db)) -> KnittingProcessRepository:
+    return KnittingProcessRepository(session)
+
 def get_purchase_transaction_service(
     repo: PurchaseTransactionRepository = Depends(get_purchase_transaction_repo),
     supplier_repo: SupplierRepository = Depends(get_supplier_repo),
     inventory_repo: InventoryRepository = Depends(get_inventory_repo),
+    kp_repo: KnittingProcessRepository = Depends(get_knitting_process_repo)
 ) -> PurchaseTransactionService:
-    return PurchaseTransactionService(pt_repo=repo, supplier_repo=supplier_repo, inventory_repo=inventory_repo)
+    return PurchaseTransactionService(pt_repo=repo, supplier_repo=supplier_repo, inventory_repo=inventory_repo, kp_repo=kp_repo)
 
 def get_knit_formula_service(
     formula_repo: KnitFormulaRepository = Depends(get_knit_formula_repo),
@@ -110,9 +114,6 @@ def get_dyeing_process_service(
     inventory_repo: InventoryRepository = Depends(get_inventory_repo),
 ) -> DyeingProcessService:
     return DyeingProcessService(dyeing_repo=dyeing_repo, inventory_repo=inventory_repo)
-
-def get_knitting_process_repo(session: AsyncSession = Depends(get_db)) -> KnittingProcessRepository:
-    return KnittingProcessRepository(session)
 
 def get_knitting_process_service(
     process_repo: KnittingProcessRepository = Depends(get_knitting_process_repo),

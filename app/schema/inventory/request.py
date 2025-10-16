@@ -8,7 +8,6 @@ class InventoryCreateRequest(BaseModel):
     type: InventoryType
     roll_count: Optional[float] = Field(0, ge=0)
     weight_kg: Optional[float] = Field(0.0, ge=0)
-    bale_count: Optional[float] = Field(0, ge=0)
     bale_ratio: Optional[float] = Field(0, ge=0)
     
     @field_validator('id')
@@ -20,5 +19,4 @@ class InventoryUpdateRequest(BaseModel):
     name: Optional[str] = None
     roll_count: Optional[float] = Field(None, ge=0)
     weight_kg: Optional[float] = Field(None, ge=0)
-    bale_count: Optional[float] = Field(None, ge=0)
     bale_ratio: Optional[float] = Field(0, ge=0)

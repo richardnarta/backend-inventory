@@ -1,4 +1,4 @@
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from datetime import datetime, date
 from sqlmodel import select, func
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -26,26 +26,18 @@ class PurchaseTransactionRepository:
         self.session = session
 
     async def create(
-        self, *, pt_create: PurchaseTransactionCreateRequest
+        self, *, pt_create_data: Dict[str, Any]
     ) -> PurchaseTransaction:
         """
-        Asynchronously creates a new purchase transaction.
-        The transaction_date is automatically set to the current timestamp.
-
-        Args:
-            pt_create: The Pydantic schema with data for the new transaction.
-
-        Returns:
-            The newly created PurchaseTransaction entity.
+        Asynchronously creates a new purchase transaction from a dictionary.
+        The service layer is responsible for providing all necessary data.
         """
-        create_data = pt_create.model_dump()
-        if 'transaction_date' not in create_data:
-            create_data.update(
-                {
-                    'transaction_date':datetime.now()
-                }
-            )
-        db_pt = PurchaseTransaction(**create_data)
+        # Ensure transaction_date is set if not provided by the service
+        if 'transaction_date' not in pt_create_data or not pt_create_data.get('transaction_date'):
+            pt_create_data['transaction_date'] = datetime.now()
+        
+        # Create the model instance directly from the dictionary
+        db_pt = PurchaseTransaction(**pt_create_data)
         self.session.add(db_pt)
         await self.session.commit()
         await self.session.refresh(db_pt)
