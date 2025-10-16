@@ -14,11 +14,13 @@ from app.schema.knit_formula.response import (
     SingleKnitFormulaResponse,
 )
 from app.schema.base_response import BaseSingleResponse
+from app.di.deps import get_current_user
 
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/knit-formula",
     tags=["Knit Formulas"],
+    dependencies=[Depends(get_current_user)]
 )
 
 # --- API Endpoints ---

@@ -29,6 +29,11 @@ from app.service.purchase_transaction import PurchaseTransactionService
 from app.service.sales_transaction import SalesTransactionService
 from app.service.supplier import SupplierService
 
+from app.repository.user import UserRepository
+from app.repository.refresh_token import RefreshTokenRepository
+from app.service.auth import AuthService
+from app.di.deps import get_current_user
+
 
 # --- Base Repositories (used by multiple services) ---
 
@@ -129,3 +134,15 @@ def get_knitting_process_service(
         machine_repo=machine_repo,
         inventory_repo=inventory_repo,
     )
+    
+def get_user_repo(session: AsyncSession = Depends(get_db)) -> UserRepository:
+    return UserRepository(session)
+
+def get_refresh_token_repo(session: AsyncSession = Depends(get_db)) -> RefreshTokenRepository:
+    return RefreshTokenRepository(session)
+
+def get_auth_service(
+    user_repo: UserRepository = Depends(get_user_repo),
+    rt_repo: RefreshTokenRepository = Depends(get_refresh_token_repo)
+) -> AuthService:
+    return AuthService(user_repo=user_repo, rt_repo=rt_repo)

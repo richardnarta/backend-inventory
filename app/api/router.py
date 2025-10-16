@@ -12,6 +12,7 @@ from app.api.endpoints.operator import router as operator_router
 from app.api.endpoints.purchase_transaction import router as purchase_transaction_router
 from app.api.endpoints.sales_transaction import router as sales_transaction_router
 from app.api.endpoints.supplier import router as supplier_router
+from app.api.endpoints.auth import router as auth_router
 
 
 # Create main API router
@@ -25,6 +26,10 @@ common_responses = {
 }
 
 # Include all the routers with their correct prefixes and tags
+api_router.include_router(
+    auth_router, 
+    responses=common_responses
+    )
 api_router.include_router(
     account_receivable_router,
     # No prefix, as the router itself has "/account-receivables"

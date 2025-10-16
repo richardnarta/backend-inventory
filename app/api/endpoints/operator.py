@@ -12,11 +12,13 @@ from app.schema.operator.response import (
     SingleOperatorResponse,
 )
 from app.schema.base_response import BaseSingleResponse
+from app.di.deps import get_current_user
 
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/operator",
     tags=["Operators"],
+    dependencies=[Depends(get_current_user)]
 )
 
 # --- API Endpoints ---

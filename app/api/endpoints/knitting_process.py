@@ -16,11 +16,13 @@ from app.schema.knitting_process.response import (
     SingleKnittingProcessResponse,
 )
 from app.schema.base_response import BaseSingleResponse
+from app.di.deps import get_current_user
 
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/knitting-process",
     tags=["Knitting Processes"],
+    dependencies=[Depends(get_current_user)]
 )
 
 # --- API Endpoints ---

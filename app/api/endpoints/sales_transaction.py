@@ -16,11 +16,13 @@ from app.schema.sales_transaction.response import (
     SingleSalesTransactionResponse,
 )
 from app.schema.base_response import BaseSingleResponse
+from app.di.deps import get_current_user
 
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/sales-transaction",
     tags=["Sales Transactions"],
+    dependencies=[Depends(get_current_user)]
 )
 
 # --- API Endpoints ---

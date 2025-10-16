@@ -16,11 +16,13 @@ from app.schema.dyeing_process.response import (
     SingleDyeingProcessResponse,
 )
 from app.schema.base_response import BaseSingleResponse
+from app.di.deps import get_current_user
 
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/dyeing-process",
     tags=["Dyeing Processes"],
+    dependencies=[Depends(get_current_user)]
 )
 
 # --- API Endpoints ---

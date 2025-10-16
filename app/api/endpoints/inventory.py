@@ -13,11 +13,13 @@ from app.schema.inventory.response import (
 )
 from app.schema.base_response import BaseSingleResponse
 from app.model.inventory import InventoryType
+from app.di.deps import get_current_user
 
 # --- Router Initialization ---
 router = APIRouter(
     prefix="/inventory",
     tags=["Inventories"],
+    dependencies=[Depends(get_current_user)]
 )
 
 # --- API Endpoints ---
