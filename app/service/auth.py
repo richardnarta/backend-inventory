@@ -56,9 +56,11 @@ class AuthService:
         token = request.cookies.get("refresh_token")
         if token:
             await self.rt_repo.delete_by_token(token=token)
-        
-        response.delete_cookie("access_token")
-        response.delete_cookie("refresh_token")
+
+        PROD = not settings.DEBUG
+
+        response.delete_cookie(key="access_token", httponly=True, secure=PROD, samesite="none" if PROD else "lax")
+        response.delete_cookie("refresh_token", httponly=True, secure=PROD, samesite="none" if PROD else "lax")
         return BaseSingleResponse(message="Logout berhasil.")
 
     async def refresh(self, *, request: Request, response: Response) -> BaseSingleResponse:
