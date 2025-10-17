@@ -21,7 +21,7 @@ from app.schema.knitting_process.response import (
 )
 from app.schema.base_response import BaseSingleResponse
 
-BALE_TO_KG_RATIO = 184.44
+BALE_TO_KG_RATIO = 181.44
 
 class KnittingProcessService:
     """Service class for knitting process-related business logic."""
