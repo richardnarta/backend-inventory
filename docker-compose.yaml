@@ -3,11 +3,11 @@ services:
   inventory_backend:
     build: .
     container_name: inventory_fastapi_backend
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
+      - "8001:8001"
     # Load environment variables from a .env file
     env_file:
       - ./.env
