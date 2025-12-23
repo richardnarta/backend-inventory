@@ -13,10 +13,14 @@ from sqlmodel import SQLModel
 from dotenv import load_dotenv
 load_dotenv()
 
+# Import all remaining models for Alembic autogenerate support
+from app.model.user import User
+from app.model.refresh_token import RefreshToken
 from app.model.buyer import Buyer
-from app.model.account_receivable import AccountReceivable
-from app.model.sales_transaction import SalesTransaction
+from app.model.supplier import Supplier
 from app.model.inventory import Inventory
+from app.model.purchase_transaction import PurchaseTransaction
+from app.model.sales_transaction import SalesTransaction
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

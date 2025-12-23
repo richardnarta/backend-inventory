@@ -1,18 +1,17 @@
 from __future__ import annotations
 from pydantic import BaseModel
 from typing import Optional
-from app.model.inventory import InventoryType
 from app.schema.base_response import BaseSingleResponse, BaseListResponse
 
-# Data Transfer Object (Matches original SQLModel)
+# Data Transfer Object (Matches new Inventory model)
 class InventoryData(BaseModel):
-    id: str
-    name: str
-    type: InventoryType
-    roll_count: Optional[float] = 0.0
-    weight_kg: Optional[float] = 0.0
-    bale_count: Optional[float] = 0.0
-    bale_ratio: Optional[float] = 0.0
+    kode_barang: str
+    nama_barang: str
+    quantity: float
+    quantity_unit: str
+    harga_modal: float
+    harga_jual_eceran: float
+    harga_jual_grosir: float
 
     class Config:
         from_attributes = True

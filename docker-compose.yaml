@@ -1,8 +1,8 @@
 services:
   # The FastAPI backend service
-  backend:
+  inventory_backend:
     build: .
-    container_name: fastapi_backend
+    container_name: inventory_fastapi_backend
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - .:/app
@@ -14,17 +14,17 @@ services:
     # Environment variables needed by the FastAPI application
     # These are now dynamically set from the .env file
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@inventory_db:${POSTGRES_PORT}/${POSTGRES_DB}
     depends_on:
-      db:
+      inventory_db:
         condition: service_healthy
 
   # The PostgreSQL database service
-  db:
+  inventory_db:
     image: postgres:15-alpine
-    container_name: postgres_db
+    container_name: inventory_postgres_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - inventory_postgres_data:/var/lib/postgresql/data/
     # Load environment variables from a .env file
     env_file:
       - ./.env
@@ -40,13 +40,13 @@ services:
       timeout: 5s
       retries: 5
 
-  alembic:
+  inventory_alembic:
     build: .
-    container_name: alembic-migration
+    container_name: inventory_alembic_migration
     env_file:
       - ./.env
     depends_on:
-      db:
+      inventory_db:
         condition: service_healthy
     command: ['alembic', 'upgrade', 'head']
     profiles:
@@ -54,4 +54,4 @@ services:
 
 # Define the named volume for data persistence
 volumes:
-  postgres_data:
+  inventory_postgres_data:

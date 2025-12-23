@@ -4,7 +4,6 @@ from sqlmodel import select, func
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.model.inventory import Inventory
 from app.model.purchase_transaction import PurchaseTransaction
 from app.schema.purchase_transaction.request import (
     PurchaseTransactionCreateRequest,
@@ -30,11 +29,16 @@ class PurchaseTransactionRepository:
     ) -> PurchaseTransaction:
         """
         Asynchronously creates a new purchase transaction from a dictionary.
-        The service layer is responsible for providing all necessary data.
         """
-        # Ensure transaction_date is set if not provided by the service
+        # Ensure transaction_date is set if not provided
         if 'transaction_date' not in pt_create_data or not pt_create_data.get('transaction_date'):
             pt_create_data['transaction_date'] = datetime.now()
+        
+        # Auto-calculate total_price if not provided
+        if 'total_price' not in pt_create_data or pt_create_data.get('total_price') is None:
+            quantity = pt_create_data.get('quantity', 0)
+            price_per_unit = pt_create_data.get('price_per_unit', 0)
+            pt_create_data['total_price'] = quantity * price_per_unit
         
         # Create the model instance directly from the dictionary
         db_pt = PurchaseTransaction(**pt_create_data)
@@ -44,7 +48,7 @@ class PurchaseTransactionRepository:
         return db_pt
 
     async def get_by_id(self, *, pt_id: int) -> Optional[PurchaseTransaction]:
-        # UPDATE THIS METHOD
+        """Get a purchase transaction by ID with related supplier and inventory"""
         statement = (
             select(PurchaseTransaction)
             .where(PurchaseTransaction.id == pt_id)
@@ -65,17 +69,17 @@ class PurchaseTransactionRepository:
         end_date: Optional[date] = None,
         page: int = 1,
         limit: int = 10,
-        inventory_type: Optional[str] = None,
     ) -> Tuple[List[PurchaseTransaction], int]:
+        """Get all purchase transactions with optional filters and pagination"""
         statement = (
             select(PurchaseTransaction)
-            .join(Inventory) # <-- TAMBAHKAN JOIN DI SINI
             .options(
                 selectinload(PurchaseTransaction.supplier),
                 selectinload(PurchaseTransaction.inventory),
             )
         )
 
+        # Apply filters
         if supplier_id is not None:
             statement = statement.where(PurchaseTransaction.supplier_id == supplier_id)
         if inventory_id:
@@ -84,19 +88,19 @@ class PurchaseTransactionRepository:
             statement = statement.where(func.date(PurchaseTransaction.transaction_date) >= start_date)
         if end_date:
             statement = statement.where(func.date(PurchaseTransaction.transaction_date) <= end_date)
-        if inventory_type:
-            statement = statement.where(Inventory.type == inventory_type)
 
+        # Get total count
         count_statement = select(func.count()).select_from(statement.subquery())
-        count_result = await self.session.execute(count_statement) # CORRECTED LINE
+        count_result = await self.session.execute(count_statement)
         total_count = count_result.one()[0]
 
+        # Apply pagination
         offset = (page - 1) * limit
         paginated_statement = (
             statement.order_by(PurchaseTransaction.id.desc()).offset(offset).limit(limit)
         )
 
-        items_result = await self.session.execute(paginated_statement) # CORRECTED LINE
+        items_result = await self.session.execute(paginated_statement)
         items = items_result.scalars().all()
 
         return list(items), total_count
@@ -109,17 +113,17 @@ class PurchaseTransactionRepository:
     ) -> PurchaseTransaction:
         """
         Asynchronously updates an existing purchase transaction.
-
-        Args:
-            db_pt: The existing PurchaseTransaction entity to update.
-            pt_update: The Pydantic schema with the updated data.
-
-        Returns:
-            The updated PurchaseTransaction entity.
         """
         update_data = pt_update.model_dump(exclude_unset=True)
+        
+        # Update fields
         for key, value in update_data.items():
             setattr(db_pt, key, value)
+        
+        # Recalculate total_price if quantity or price_per_unit changed
+        if 'quantity' in update_data or 'price_per_unit' in update_data:
+            if 'total_price' not in update_data:
+                db_pt.total_price = db_pt.quantity * db_pt.price_per_unit
 
         self.session.add(db_pt)
         await self.session.commit()
@@ -129,9 +133,6 @@ class PurchaseTransactionRepository:
     async def delete(self, *, db_pt: PurchaseTransaction) -> None:
         """
         Asynchronously deletes a purchase transaction from the database.
-
-        Args:
-            db_pt: The PurchaseTransaction entity to delete.
         """
         await self.session.delete(db_pt)
         await self.session.commit()

@@ -12,7 +12,6 @@ from app.schema.inventory.response import (
     SingleInventoryResponse,
 )
 from app.schema.base_response import BaseSingleResponse
-from app.model.inventory import InventoryType
 from app.di.deps import get_current_user
 
 # --- Router Initialization ---
@@ -32,12 +31,15 @@ async def create_inventory(
     """
     ### Create a new Inventory item.
 
-    This endpoint registers a new item in the inventory, which can be a raw material
-    (e.g., THREAD) or a finished product (e.g., FABRIC).
+    This endpoint registers a new item in the inventory system.
 
-    - **id**: A unique identifier for the item. The service will raise an error if this ID is already in use.
-    - **name**: The display name of the item.
-    - **type**: The type of item (`fabric` or `thread`).
+    - **kode_barang**: A unique identifier for the item (will be converted to uppercase).
+    - **nama_barang**: The display name of the item.
+    - **quantity**: Current stock quantity.
+    - **quantity_unit**: Unit of measurement (buah, lusin, kodi, dus, bal).
+    - **harga_modal**: Cost price / purchase price.
+    - **harga_jual_eceran**: Retail selling price.
+    - **harga_jual_grosir**: Wholesale selling price.
     """
     return await service.create(inventory_create=request_data)
 
@@ -45,9 +47,9 @@ async def create_inventory(
 async def get_all_inventories(
     page: int = Query(1, ge=1, description="Page number to retrieve"),
     limit: int = Query(10, ge=1, le=9999, description="Number of items per page"),
-    name: Optional[str] = Query(None, description="Filter by item name. Case-insensitive search."),
-    id: Optional[str] = Query(None, description="Filter by item ID. Case-insensitive search."),
-    type: Optional[InventoryType] = Query(None, description="Filter by item type ('fabric' or 'thread')."),
+    nama_barang: Optional[str] = Query(None, description="Filter by item name. Case-insensitive search."),
+    kode_barang: Optional[str] = Query(None, description="Filter by item code. Case-insensitive search."),
+    quantity_unit: Optional[str] = Query(None, description="Filter by quantity unit (buah, lusin, kodi, dus, bal)."),
     service: InventoryService = Depends(get_inventory_service),
 ):
     """
@@ -58,48 +60,46 @@ async def get_all_inventories(
     return await service.get_all(
         page=page,
         limit=limit,
-        name=name,
-        id=id,
-        type=type,
+        nama_barang=nama_barang,
+        kode_barang=kode_barang,
+        quantity_unit=quantity_unit,
     )
 
-@router.get("/{inventory_id}", response_model=SingleInventoryResponse)
+@router.get("/{kode_barang}", response_model=SingleInventoryResponse)
 async def get_inventory_by_id(
-    inventory_id: str,
+    kode_barang: str,
     service: InventoryService = Depends(get_inventory_service),
 ):
     """
-    ### Get a single Inventory item by ID.
+    ### Get a single Inventory item by kode_barang.
 
     Retrieve the details and current stock levels of a specific inventory item
-    using its unique ID.
+    using its unique kode_barang.
     """
-    return await service.get_by_id(inventory_id=inventory_id)
+    return await service.get_by_id(kode_barang=kode_barang)
 
-@router.put("/{inventory_id}", response_model=SingleInventoryResponse)
+@router.put("/{kode_barang}", response_model=SingleInventoryResponse)
 async def update_inventory(
-    inventory_id: str,
+    kode_barang: str,
     request_data: InventoryUpdateRequest,
     service: InventoryService = Depends(get_inventory_service),
 ):
     """
     ### Update an Inventory item.
 
-    Modify the details of an existing inventory item, such as its name or stock levels.
-    Note: Manually updating stock levels via this endpoint is generally discouraged.
-    Stock should be managed automatically via Sales and Purchase transactions.
+    Modify the details of an existing inventory item, such as its name, quantity, or pricing.
     """
-    return await service.update(inventory_id=inventory_id, inventory_update=request_data)
+    return await service.update(kode_barang=kode_barang, inventory_update=request_data)
 
-@router.delete("/{inventory_id}", response_model=BaseSingleResponse)
+@router.delete("/{kode_barang}", response_model=BaseSingleResponse)
 async def delete_inventory(
-    inventory_id: str,
+    kode_barang: str,
     service: InventoryService = Depends(get_inventory_service),
 ):
     """
     ### Delete an Inventory item.
 
     Permanently remove an inventory item from the database.
-    **Warning**: This can fail if the item is referenced in existing transactions or formulas.
+    **Warning**: This can fail if the item is referenced in existing transactions.
     """
-    return await service.delete(inventory_id=inventory_id)
+    return await service.delete(kode_barang=kode_barang)

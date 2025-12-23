@@ -36,12 +36,7 @@ async def create_sales_transaction(
     ### Create a new Sales Transaction.
 
     This endpoint records a new sale of inventory items to a buyer.
-
-    **Business Logic**:
-    - Validates that the `buyer_id` and `inventory_id` exist.
-    - **Checks for sufficient stock** before processing the sale.
-    - Automatically **decreases** the stock levels (`roll_count`, `weight_kg`)
-      of the specified inventory item.
+    (Recording only - does not automatically update inventory stock)
     """
     return await service.create(st_create=request_data)
 
@@ -50,7 +45,7 @@ async def get_all_sales_transactions(
     page: int = Query(1, ge=1, description="Page number to retrieve"),
     limit: int = Query(10, ge=1, le=99999, description="Number of items per page"),
     buyer_id: Optional[int] = Query(None, description="Filter by Buyer ID"),
-    inventory_id: Optional[str] = Query(None, description="Filter by Inventory Item ID"),
+    inventory_id: Optional[str] = Query(None, description="Filter by Inventory Item kode_barang"),
     start_date: Optional[date] = Query(None, description="Filter by start date (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="Filter by end date (YYYY-MM-DD)"),
     service: SalesTransactionService = Depends(get_sales_transaction_service),
@@ -91,11 +86,7 @@ async def update_sales_transaction(
     ### Update a Sales Transaction.
 
     Modify an existing sales transaction.
-
-    **Business Logic**:
-    - Calculates the difference between the old and new quantities.
-    - **Checks for sufficient stock** to cover the change.
-    - Automatically **adjusts** the inventory stock based on the difference.
+    (Recording only - does not adjust inventory stock)
     """
     return await service.update(st_id=st_id, st_update=request_data)
 
@@ -108,9 +99,6 @@ async def delete_sales_transaction(
     ### Delete a Sales Transaction.
 
     Permanently remove a sales transaction record.
-
-    **Business Logic**:
-    - This action **reverses** the initial stock change by **adding back** the
-      transaction's quantities to the corresponding inventory item.
+    (Recording only - does not reverse inventory stock)
     """
     return await service.delete(st_id=st_id)

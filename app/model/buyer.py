@@ -3,7 +3,7 @@ from sqlmodel import Field, SQLModel, Relationship
 from .sales_transaction import SalesTransaction
 
 if TYPE_CHECKING:
-    from .account_receivable import AccountReceivable
+    pass
 
 
 class Buyer(SQLModel, table=True):
@@ -34,10 +34,6 @@ class Buyer(SQLModel, table=True):
     note: Optional[str] = Field(default=None)
     
     sales: List["SalesTransaction"] = Relationship(
-        back_populates="buyer",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
-    )
-    receivables: List["AccountReceivable"] = Relationship(
         back_populates="buyer",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )

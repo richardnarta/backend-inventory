@@ -3,7 +3,6 @@ from datetime import date
 from fastapi import APIRouter, Depends, status, Query
 
 # --- Dependency Imports ---
-from app.model.inventory import InventoryType
 from app.service.purchase_transaction import PurchaseTransactionService
 from app.di.core import get_purchase_transaction_service
 
@@ -37,11 +36,7 @@ async def create_purchase_transaction(
     ### Create a new Purchase Transaction.
 
     This endpoint records a new purchase of inventory items from a supplier.
-
-    **Business Logic**:
-    - Validates that the `supplier_id` and `inventory_id` exist.
-    - Automatically **increases** the stock levels (`roll_count`, `weight_kg`, `bale_count`)
-      of the specified inventory item.
+    (Recording only - does not automatically update inventory stock)
     """
     return await service.create(pt_create=request_data)
 
@@ -50,10 +45,9 @@ async def get_all_purchase_transactions(
     page: int = Query(1, ge=1, description="Page number to retrieve"),
     limit: int = Query(10, ge=1, le=99999, description="Number of items per page"),
     supplier_id: Optional[int] = Query(None, description="Filter by Supplier ID"),
-    inventory_id: Optional[str] = Query(None, description="Filter by Inventory Item ID"),
+    inventory_id: Optional[str] = Query(None, description="Filter by Inventory Item kode_barang"),
     start_date: Optional[date] = Query(None, description="Filter by start date (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="Filter by end date (YYYY-MM-DD)"),
-    type: Optional[InventoryType] = Query(None, description="Filter by inventory type ('fabric' or 'thread')"),
     service: PurchaseTransactionService = Depends(get_purchase_transaction_service),
 ):
     """
@@ -68,7 +62,6 @@ async def get_all_purchase_transactions(
         inventory_id=inventory_id,
         start_date=start_date,
         end_date=end_date,
-        inventory_type=type,
     )
 
 @router.get("/{pt_id}", response_model=SinglePurchaseTransactionResponse)
@@ -93,11 +86,7 @@ async def update_purchase_transaction(
     ### Update a Purchase Transaction.
 
     Modify an existing purchase transaction.
-
-    **Business Logic**:
-    - Automatically **adjusts** the inventory stock based on the difference
-      between the old and new quantities. For example, changing `weight_kg` from
-      100 to 120 will add 20 to the item's stock.
+    (Recording only - does not adjust inventory stock)
     """
     return await service.update(pt_id=pt_id, pt_update=request_data)
 
@@ -110,9 +99,6 @@ async def delete_purchase_transaction(
     ### Delete a Purchase Transaction.
 
     Permanently remove a purchase transaction record.
-
-    **Business Logic**:
-    - This action **reverses** the initial stock change by **subtracting** the
-      transaction's quantities from the corresponding inventory item.
+    (Recording only - does not reverse inventory stock)
     """
     return await service.delete(pt_id=pt_id)

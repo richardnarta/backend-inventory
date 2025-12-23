@@ -10,12 +10,13 @@ if TYPE_CHECKING:
 class SalesTransaction(SQLModel, table=True):
     """
     SQLModel for sales transactions.
+    Records sales entries without automatic stock updates.
     """
     __tablename__ = "sales_transaction"
 
     # Primary Key
     id: Optional[int] = Field(
-        default=None, 
+        default=None,
         primary_key=True,
         description="Auto-incrementing primary key for the transaction"
     )
@@ -23,7 +24,7 @@ class SalesTransaction(SQLModel, table=True):
     # Auto-generated datetime
     transaction_date: datetime = Field(
         index=True,
-        description="Transaction timestamp (automatically set to current time on creation)"
+        description="Transaction timestamp"
     )
 
     # Foreign Keys
@@ -36,24 +37,32 @@ class SalesTransaction(SQLModel, table=True):
     )
     inventory_id: Optional[str] = Field(
         default=None,
-        foreign_key="inventory.id",
+        foreign_key="inventory.kode_barang",
         index=True,
-        description="Foreign key to the Inventory item table",
+        description="Foreign key to the Inventory item (kode_barang)",
         sa_column_kwargs={"nullable": True}
     )
 
     # Transaction details
-    roll_count: Optional[float] = Field(
-        default=0,
-        description="Quantity sold in rolls"
-    )
-    weight_kg: Optional[float] = Field(
+    quantity: float = Field(
         default=0.0,
-        description="Quantity sold in kilograms"
+        ge=0,
+        description="Quantity sold"
     )
-    price_per_kg: float = Field(
-        description="Unit price at the time of sale."
+    quantity_unit: str = Field(
+        description="Unit of measurement (buah, lusin, kodi, dus, bal)"
+    )
+    price_per_unit: float = Field(
+        default=0.0,
+        ge=0,
+        description="Price per unit at the time of sale"
+    )
+    total_price: float = Field(
+        default=0.0,
+        ge=0,
+        description="Total transaction price"
     )
     
-    buyer: "Buyer" = Relationship(back_populates="sales")
-    inventory: "Inventory" = Relationship(back_populates="sales")
+    # Relationships
+    buyer: Optional["Buyer"] = Relationship(back_populates="sales")
+    inventory: Optional["Inventory"] = Relationship(back_populates="sales")

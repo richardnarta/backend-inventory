@@ -2,11 +2,9 @@ from typing import Optional
 from datetime import date
 from fastapi import HTTPException, status
 
-from app.model.inventory import InventoryType
 from app.repository.purchase_transaction import PurchaseTransactionRepository
 from app.repository.inventory import InventoryRepository
 from app.repository.supplier import SupplierRepository
-from app.repository.knitting_process import KnittingProcessRepository
 from app.schema.purchase_transaction.request import (
     PurchaseTransactionCreateRequest,
     PurchaseTransactionUpdateRequest,
@@ -17,8 +15,6 @@ from app.schema.purchase_transaction.response import (
 )
 from app.schema.base_response import BaseSingleResponse
 
-BALE_TO_KG_RATIO = 181.44
-
 class PurchaseTransactionService:
     """Service class for purchase transaction-related business logic."""
 
@@ -27,12 +23,10 @@ class PurchaseTransactionService:
         pt_repo: PurchaseTransactionRepository,
         inventory_repo: InventoryRepository,
         supplier_repo: SupplierRepository,
-        kp_repo: KnittingProcessRepository,
     ):
         self.pt_repo = pt_repo
         self.inventory_repo = inventory_repo
         self.supplier_repo = supplier_repo
-        self.kp_repo = kp_repo
 
     async def get_all(
         self,
@@ -42,7 +36,6 @@ class PurchaseTransactionService:
         inventory_id: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-        inventory_type: Optional[InventoryType] = None,
     ) -> BulkPurchaseTransactionResponse:
         """Retrieves a paginated list of purchase transactions."""
         items, total_count = await self.pt_repo.get_all(
@@ -52,7 +45,6 @@ class PurchaseTransactionService:
             inventory_id=inventory_id,
             start_date=start_date,
             end_date=end_date,
-            inventory_type=inventory_type,
         )
         total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
 
@@ -78,44 +70,52 @@ class PurchaseTransactionService:
         self, pt_create: PurchaseTransactionCreateRequest
     ) -> SinglePurchaseTransactionResponse:
         """
-        Creates a purchase transaction, calculates and sets its bale_count,
-        and updates the corresponding inventory stock.
+        Creates a purchase transaction and automatically updates inventory stock.
+        Handles unit conversion if transaction unit differs from inventory unit.
         """
-        supplier = await self.supplier_repo.get_by_id(supplier_id=pt_create.supplier_id)
-        if not supplier:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Supplier tidak ditemukan.")
+        # Validate supplier if provided
+        if pt_create.supplier_id:
+            supplier = await self.supplier_repo.get_by_id(supplier_id=pt_create.supplier_id)
+            if not supplier:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Supplier tidak ditemukan."
+                )
 
-        inventory_item = await self.inventory_repo.get_by_id(inventory_id=pt_create.inventory_id)
+        # Validate inventory item
+        inventory_item = await self.inventory_repo.get_by_id(kode_barang=pt_create.inventory_id)
         if not inventory_item:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item inventory tidak ditemukan.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item inventory tidak ditemukan."
+            )
 
-        # --- Logika Kalkulasi dan Persiapan Data ---
+        # Prepare data for repository (auto-calculation of total_price handled by repository)
         pt_create_data = pt_create.model_dump()
         
-        if inventory_item.type == InventoryType.THREAD:
-            bale_increase = round(pt_create.weight_kg / BALE_TO_KG_RATIO, 3)
-            
-            # 1. Update stok inventory
-            current_weight = inventory_item.weight_kg or 0
-            current_bales = inventory_item.bale_count or 0
-            inventory_item.weight_kg = round(current_weight + pt_create.weight_kg, 3)
-            inventory_item.bale_count = round(current_bales + bale_increase, 3)
-            
-            # 2. Tambahkan bale_count ke data transaksi yang akan dibuat
-            pt_create_data['bale_count'] = bale_increase
-        
-        elif inventory_item.type == InventoryType.FABRIC:
-            current_weight = inventory_item.weight_kg or 0
-            current_rolls = inventory_item.roll_count or 0
-            inventory_item.weight_kg = round(current_weight + pt_create.weight_kg, 3)
-            inventory_item.roll_count = round(current_rolls + pt_create.roll_count, 3)
-        
-        # Kirim dictionary yang sudah lengkap ke repository
+        # Create transaction (repository will auto-calculate total_price if not provided)
         new_transaction = await self.pt_repo.create(pt_create_data=pt_create_data)
+        
+        # AUTO-UPDATE INVENTORY STOCK with unit conversion
+        from app.utils.unit_converter import add_quantity_to_inventory
+        
+        new_quantity = add_quantity_to_inventory(
+            inventory_quantity=inventory_item.quantity,
+            inventory_unit=inventory_item.quantity_unit,
+            add_quantity=pt_create.quantity,
+            add_unit=pt_create.quantity_unit
+        )
+        
+        # Update inventory with new quantity (keeping original unit)
+        await self.inventory_repo.update_by_kode(
+            kode_barang=inventory_item.kode_barang,
+            update_data={"quantity": new_quantity}
+        )
+        
         created_transaction = await self.pt_repo.get_by_id(pt_id=new_transaction.id)
 
         return SinglePurchaseTransactionResponse(
-            message="Berhasil membuat data transaksi pembelian.",
+            message="Berhasil membuat data transaksi pembelian dan memperbarui stok inventory.",
             data=created_transaction
         )
 
@@ -123,7 +123,8 @@ class PurchaseTransactionService:
         self, pt_id: int, pt_update: PurchaseTransactionUpdateRequest
     ) -> SinglePurchaseTransactionResponse:
         """
-        Updates a purchase transaction and adjusts inventory stock accordingly.
+        Updates a purchase transaction with automatic stock adjustment.
+        If quantity/unit changes, reverses old stock change and applies new one.
         """
         db_transaction = await self.pt_repo.get_by_id(pt_id=pt_id)
         if not db_transaction:
@@ -132,35 +133,75 @@ class PurchaseTransactionService:
                 detail="Transaksi pembelian tidak ditemukan.",
             )
         
-        # Business Logic: Adjust inventory stock based on the difference
-        inventory = await self.inventory_repo.get_by_id(inventory_id=db_transaction.inventory_id)
-        if not inventory:
-             raise HTTPException(
+        # Validate supplier if being updated
+        if pt_update.supplier_id is not None:
+            supplier = await self.supplier_repo.get_by_id(supplier_id=pt_update.supplier_id)
+            if not supplier:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Supplier tidak ditemukan."
+                )
+        
+        # Validate inventory if being updated
+        new_inventory_id = pt_update.inventory_id if pt_update.inventory_id is not None else db_transaction.inventory_id
+        inventory_item = await self.inventory_repo.get_by_id(kode_barang=new_inventory_id)
+        if not inventory_item:
+            raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Barang (inventory) terkait transaksi ini tidak ditemukan, update dibatalkan.",
+                detail="Item inventory tidak ditemukan."
             )
-
-        # Calculate differences
-        roll_diff = (pt_update.roll_count or db_transaction.roll_count) - (db_transaction.roll_count or 0)
-        weight_diff = (pt_update.weight_kg or db_transaction.weight_kg) - (db_transaction.weight_kg or 0)
-        bale_diff = (pt_update.bale_count or db_transaction.bale_count) - (db_transaction.bale_count or 0)
-
-        # Apply differences to stock
-        inventory.roll_count = (inventory.roll_count or 0) + roll_diff
-        inventory.weight_kg = (inventory.weight_kg or 0) + weight_diff
-        inventory.bale_count = (inventory.bale_count or 0) + bale_diff
+        
+        # Check if quantity/unit changed - need stock adjustment
+        quantity_changed = (pt_update.quantity is not None and pt_update.quantity != db_transaction.quantity)
+        unit_changed = (pt_update.quantity_unit is not None and pt_update.quantity_unit != db_transaction.quantity_unit)
+        inventory_changed = (pt_update.inventory_id is not None and pt_update.inventory_id != db_transaction.inventory_id)
+        
+        if quantity_changed or unit_changed or inventory_changed:
+            from app.utils.unit_converter import subtract_quantity_from_inventory, add_quantity_to_inventory
+            
+            # STEP 1: Rollback old transaction (subtract old quantity from current stock)
+            old_inventory = inventory_item if not inventory_changed else await self.inventory_repo.get_by_id(kode_barang=db_transaction.inventory_id)
+            if old_inventory:
+                rollback_quantity = subtract_quantity_from_inventory(
+                    inventory_quantity=old_inventory.quantity,
+                    inventory_unit=old_inventory.quantity_unit,
+                    subtract_quantity=db_transaction.quantity,
+                    subtract_unit=db_transaction.quantity_unit
+                )
+                await self.inventory_repo.update_by_kode(
+                    kode_barang=old_inventory.kode_barang,
+                    update_data={"quantity": rollback_quantity}
+                )
+            
+            # STEP 2: Apply new transaction (add new quantity)
+            new_quantity = pt_update.quantity if pt_update.quantity is not None else db_transaction.quantity
+            new_unit = pt_update.quantity_unit if pt_update.quantity_unit is not None else db_transaction.quantity_unit
+            
+            # Reload inventory to get latest quantity after rollback
+            inventory_item = await self.inventory_repo.get_by_id(kode_barang=new_inventory_id)
+            updated_stock = add_quantity_to_inventory(
+                inventory_quantity=inventory_item.quantity,
+                inventory_unit=inventory_item.quantity_unit,
+                add_quantity=new_quantity,
+                add_unit=new_unit
+            )
+            await self.inventory_repo.update_by_kode(
+                kode_barang=inventory_item.kode_barang,
+                update_data={"quantity": updated_stock}
+            )
         
         updated_transaction = await self.pt_repo.update(
             db_pt=db_transaction, pt_update=pt_update
         )
         return SinglePurchaseTransactionResponse(
-            message="Berhasil mengupdate transaksi pembelian.", data=updated_transaction
+            message="Berhasil mengupdate transaksi pembelian dan menyesuaikan stok.", 
+            data=updated_transaction
         )
 
     async def delete(self, pt_id: int) -> BaseSingleResponse:
         """
-        Deletes a purchase transaction and reverses its effect on inventory stock.
-        Deletion is prevented if the item is a thread allocated to a pending knit process.
+        Deletes a purchase transaction with automatic stock rollback.
+        Subtracts the transaction quantity from inventory.
         """
         db_transaction = await self.pt_repo.get_by_id(pt_id=pt_id)
         if not db_transaction:
@@ -169,46 +210,23 @@ class PurchaseTransactionService:
                 detail="Transaksi pembelian tidak ditemukan.",
             )
         
-        # Validasi alokasi pada proses rajut yang sedang berjalan (TETAP DI SINI)
-        inventory = await self.inventory_repo.get_by_id(inventory_id=db_transaction.inventory_id)
-        if inventory and inventory.type == InventoryType.THREAD:
-            allocated_thread_ids = await self.kp_repo.get_all_pending_material_ids()
-            if db_transaction.inventory_id in allocated_thread_ids:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Hapus gagal: Barang '{inventory.name}' sedang dialokasikan untuk proses rajut yang berjalan."
-                )
-
-        # Logika rollback stok
-        if inventory:
-            weight_to_revert = db_transaction.weight_kg or 0
-            
-            if (inventory.weight_kg or 0) < weight_to_revert:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Hapus gagal: Stok '{inventory.name}' tidak mencukupi untuk dikembalikan."
-                )
-            inventory.weight_kg = round((inventory.weight_kg or 0) - weight_to_revert, 3)
-
-            if inventory.type == InventoryType.THREAD:
-                bale_decrease = db_transaction.bale_count or 0
-                if (inventory.bale_count or 0) < bale_decrease:
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail=f"Hapus gagal: Stok bale '{inventory.name}' tidak mencukupi untuk dikembalikan."
-                    )
-                inventory.bale_count = round((inventory.bale_count or 0) - bale_decrease, 3)
-
-            elif inventory.type == InventoryType.FABRIC:
-                rolls_to_revert = db_transaction.roll_count or 0
-                if (inventory.roll_count or 0) < rolls_to_revert:
-                         raise HTTPException(
-                            status_code=status.HTTP_409_CONFLICT,
-                            detail=f"Hapus gagal: Stok roll '{inventory.name}' tidak mencukupi untuk dikembalikan."
-                        )
-                inventory.roll_count = round((inventory.roll_count or 0) - rolls_to_revert, 3)
+        # ROLLBACK STOCK: Subtract transaction quantity from inventory
+        from app.utils.unit_converter import subtract_quantity_from_inventory
+        
+        inventory_item = await self.inventory_repo.get_by_id(kode_barang=db_transaction.inventory_id)
+        if inventory_item:
+            rollback_quantity = subtract_quantity_from_inventory(
+                inventory_quantity=inventory_item.quantity,
+                inventory_unit=inventory_item.quantity_unit,
+                subtract_quantity=db_transaction.quantity,
+                subtract_unit=db_transaction.quantity_unit
+            )
+            await self.inventory_repo.update_by_kode(
+                kode_barang=inventory_item.kode_barang,
+                update_data={"quantity": rollback_quantity}
+            )
 
         await self.pt_repo.delete(db_pt=db_transaction)
         return BaseSingleResponse(
-            message=f"Berhasil menghapus transaksi pembelian dengan id {pt_id} dan mengembalikan stok."
+            message=f"Berhasil menghapus transaksi pembelian dengan id {pt_id} dan rollback stok."
         )
