@@ -9,6 +9,7 @@ class InventoryData(BaseModel):
     nama_barang: str
     quantity: float
     quantity_unit: str
+    additional_note: str
     harga_modal: float
     harga_jual_eceran: float
     harga_jual_grosir: float

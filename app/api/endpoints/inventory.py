@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, UploadFile, File
 
 # --- Dependency Imports ---
 from app.service.inventory import InventoryService
@@ -11,8 +11,11 @@ from app.schema.inventory.response import (
     BulkInventoryResponse,
     SingleInventoryResponse,
 )
+from app.schema.inventory.batch_response import BatchUploadResponse
 from app.schema.base_response import BaseSingleResponse
 from app.di.deps import get_current_user
+from app.utils.excel_processor import process_excel_file
+from app.utils.excel_exporter import generate_inventory_export
 
 # --- Router Initialization ---
 router = APIRouter(
@@ -22,6 +25,93 @@ router = APIRouter(
 )
 
 # --- API Endpoints ---
+
+@router.get("/export-excel")
+async def export_inventory_excel(
+    service: InventoryService = Depends(get_inventory_service),
+):
+    """
+    ### Export all inventory items to Excel file.
+    
+    Downloads an Excel file with all inventory data in the same format as import template.
+    Useful for backup or editing inventory in bulk.
+    
+    **Format:**
+    - Row 1-2: Headers
+    - Row 3+: Data
+    - Columns: A=Kode, C=Nama, F=Satuan, G=Modal, H=Eceran, I=Qty, P=Keterangan
+    """
+    # Get all inventory items (no pagination)
+    result = await service.get_all(
+        nama_barang=None,
+        kode_barang=None,
+        quantity_unit=None,
+        page=1,
+        limit=999999  # Get all items
+    )
+    
+    # Convert response items to Inventory models for exporter
+    from app.model.inventory import Inventory
+    inventories = [Inventory(**item.model_dump()) for item in result.items]
+    
+    return generate_inventory_export(inventories)
+
+@router.post("/batch-upload", status_code=status.HTTP_201_CREATED, response_model=BatchUploadResponse)
+async def batch_upload_inventory(
+    file: UploadFile = File(..., description="Excel file (.xlsx or .xls) containing inventory data"),
+    service: InventoryService = Depends(get_inventory_service),
+):
+    """
+    ### Batch upload inventory items from Excel file.
+    
+    Upload an Excel file to create multiple inventory items at once.
+    
+    **Excel Format Requirements:**
+    - Row 1-2: Headers (will be skipped)
+    - Row 3+: Data rows
+    - Column A: Kode Barang (Item Code)
+    - Column C: Nama Barang (Item Name)
+    - Column F: Satuan (Unit) - will be mapped automatically
+    - Column G: Harga Modal (Cost Price)
+    - Column H: Harga Jual Eceran (Retail Price)
+    - Column I: Qty (Quantity)
+    - Column P: Keterangan (Additional Note)
+    
+    **Unit Mapping:**
+    - DUS/dus → Dus
+    - BTG/btg → Batang
+    - BAL/bal → Bal
+    - BH/PCS/pcs/bh → Pcs
+    - lbr/LBR → Lembar
+    - ls/LS → Lusin
+    - m/M → Meter
+    - pak/PAK → Pak
+    - ons/ONS → Ons
+    - sak/SAK → Sak
+    - kg/KG → Kilogram
+    - kotak/KOTAK → Kotak
+    
+    **Behavior:**
+    - Rows with unmapped units will be skipped
+    - Duplicate kode_barang will be skipped
+    - Empty rows will be skipped
+    """
+    # Process Excel file
+    valid_items, skipped_count, new_units = await process_excel_file(file)
+    
+    # Batch upload to database
+    upload_result = await service.batch_upload_from_excel(valid_items)
+    
+    total_processed = len(valid_items) + skipped_count
+    
+    return BatchUploadResponse(
+        message=f"Berhasil memproses {total_processed} baris data.",
+        total_rows_processed=total_processed,
+        successful_imports=upload_result["successful_count"],
+        skipped_rows=skipped_count,
+        new_units_detected=new_units,
+        duplicate_skipped=upload_result["duplicate_count"]
+    )
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleInventoryResponse)
 async def create_inventory(

@@ -94,10 +94,10 @@ class PurchaseTransactionRepository:
         count_result = await self.session.execute(count_statement)
         total_count = count_result.one()[0]
 
-        # Apply pagination
+        # Apply pagination and ordering
         offset = (page - 1) * limit
         paginated_statement = (
-            statement.order_by(PurchaseTransaction.id.desc()).offset(offset).limit(limit)
+            statement.order_by(PurchaseTransaction.transaction_date.desc()).offset(offset).limit(limit)
         )
 
         items_result = await self.session.execute(paginated_statement)

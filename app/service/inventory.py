@@ -110,3 +110,42 @@ class InventoryService:
         return BaseSingleResponse(
             message=f"Berhasil menghapus data barang dengan kode {kode_barang}."
         )
+    
+    async def batch_upload_from_excel(self, items_data: list) -> dict:
+        """
+        Batch upload inventory items from Excel data.
+        
+        Args:
+            items_data: List of dictionaries containing inventory item data
+            
+        Returns:
+            Dictionary with upload statistics
+        """
+        successful_count = 0
+        duplicate_count = 0
+        
+        for item_data in items_data:
+            try:
+                # Check if item already exists
+                existing_item = await self.inventory_repo.get_by_id(
+                    kode_barang=item_data['kode_barang']
+                )
+                
+                if existing_item:
+                    # Skip duplicates
+                    duplicate_count += 1
+                    continue
+                
+                # Create new inventory item
+                db_inventory = Inventory(**item_data)
+                await self.inventory_repo.create(db_inventory=db_inventory)
+                successful_count += 1
+                
+            except Exception as e:
+                # Skip items that fail to create
+                continue
+        
+        return {
+            "successful_count": successful_count,
+            "duplicate_count": duplicate_count
+        }

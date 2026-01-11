@@ -63,7 +63,7 @@ class SupplierRepository:
         total_count = count_result.one()[0]
 
         offset = (page - 1) * limit
-        paginated_statement = statement.order_by(Supplier.id).offset(offset).limit(limit)
+        paginated_statement = statement.order_by(Supplier.name.asc()).offset(offset).limit(limit)
         
         items_result = await self.session.execute(paginated_statement) # CORRECTED LINE
         items = items_result.scalars().all()

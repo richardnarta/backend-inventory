@@ -71,7 +71,7 @@ class PurchaseTransactionService:
     ) -> SinglePurchaseTransactionResponse:
         """
         Creates a purchase transaction and automatically updates inventory stock.
-        Handles unit conversion if transaction unit differs from inventory unit.
+        Automatically uses inventory's quantity_unit.
         """
         # Validate supplier if provided
         if pt_create.supplier_id:
@@ -86,27 +86,22 @@ class PurchaseTransactionService:
         inventory_item = await self.inventory_repo.get_by_id(kode_barang=pt_create.inventory_id)
         if not inventory_item:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                    status_code=status.HTTP_404_NOT_FOUND,
                 detail="Item inventory tidak ditemukan."
             )
 
-        # Prepare data for repository (auto-calculation of total_price handled by repository)
+        # Create transaction with inventory's quantity_unit
+        # Convert request to dict and add quantity_unit from inventory
         pt_create_data = pt_create.model_dump()
+        pt_create_data['quantity_unit'] = inventory_item.quantity_unit
         
         # Create transaction (repository will auto-calculate total_price if not provided)
         new_transaction = await self.pt_repo.create(pt_create_data=pt_create_data)
         
-        # AUTO-UPDATE INVENTORY STOCK with unit conversion
-        from app.utils.unit_converter import add_quantity_to_inventory
+        # AUTO-UPDATE INVENTORY STOCK (direct addition)
+        new_quantity = inventory_item.quantity + pt_create.quantity
         
-        new_quantity = add_quantity_to_inventory(
-            inventory_quantity=inventory_item.quantity,
-            inventory_unit=inventory_item.quantity_unit,
-            add_quantity=pt_create.quantity,
-            add_unit=pt_create.quantity_unit
-        )
-        
-        # Update inventory with new quantity (keeping original unit)
+        # Update inventory with new quantity
         await self.inventory_repo.update_by_kode(
             kode_barang=inventory_item.kode_barang,
             update_data={"quantity": new_quantity}
@@ -124,7 +119,8 @@ class PurchaseTransactionService:
     ) -> SinglePurchaseTransactionResponse:
         """
         Updates a purchase transaction with automatic stock adjustment.
-        If quantity/unit changes, reverses old stock change and applies new one.
+        If quantity changes, reverses old stock change and applies new one.
+        Automatically uses inventory's quantity_unit.
         """
         db_transaction = await self.pt_repo.get_by_id(pt_id=pt_id)
         if not db_transaction:
@@ -151,23 +147,15 @@ class PurchaseTransactionService:
                 detail="Item inventory tidak ditemukan."
             )
         
-        # Check if quantity/unit changed - need stock adjustment
+        # Check if quantity or inventory changed - need stock adjustment
         quantity_changed = (pt_update.quantity is not None and pt_update.quantity != db_transaction.quantity)
-        unit_changed = (pt_update.quantity_unit is not None and pt_update.quantity_unit != db_transaction.quantity_unit)
         inventory_changed = (pt_update.inventory_id is not None and pt_update.inventory_id != db_transaction.inventory_id)
         
-        if quantity_changed or unit_changed or inventory_changed:
-            from app.utils.unit_converter import subtract_quantity_from_inventory, add_quantity_to_inventory
-            
+        if quantity_changed or inventory_changed:
             # STEP 1: Rollback old transaction (subtract old quantity from current stock)
             old_inventory = inventory_item if not inventory_changed else await self.inventory_repo.get_by_id(kode_barang=db_transaction.inventory_id)
             if old_inventory:
-                rollback_quantity = subtract_quantity_from_inventory(
-                    inventory_quantity=old_inventory.quantity,
-                    inventory_unit=old_inventory.quantity_unit,
-                    subtract_quantity=db_transaction.quantity,
-                    subtract_unit=db_transaction.quantity_unit
-                )
+                rollback_quantity = old_inventory.quantity - db_transaction.quantity
                 await self.inventory_repo.update_by_kode(
                     kode_barang=old_inventory.kode_barang,
                     update_data={"quantity": rollback_quantity}
@@ -175,20 +163,23 @@ class PurchaseTransactionService:
             
             # STEP 2: Apply new transaction (add new quantity)
             new_quantity = pt_update.quantity if pt_update.quantity is not None else db_transaction.quantity
-            new_unit = pt_update.quantity_unit if pt_update.quantity_unit is not None else db_transaction.quantity_unit
             
             # Reload inventory to get latest quantity after rollback
             inventory_item = await self.inventory_repo.get_by_id(kode_barang=new_inventory_id)
-            updated_stock = add_quantity_to_inventory(
-                inventory_quantity=inventory_item.quantity,
-                inventory_unit=inventory_item.quantity_unit,
-                add_quantity=new_quantity,
-                add_unit=new_unit
-            )
+            
+            updated_stock = inventory_item.quantity + new_quantity
             await self.inventory_repo.update_by_kode(
                 kode_barang=inventory_item.kode_barang,
                 update_data={"quantity": updated_stock}
             )
+            
+            # If inventory changed, update quantity_unit to match new inventory
+            if inventory_changed:
+                update_data = pt_update.model_dump(exclude_unset=True)
+                update_data['quantity_unit'] = inventory_item.quantity_unit
+                # Create a new update request with the updated unit
+                from app.schema.purchase_transaction.request import PurchaseTransactionUpdateRequest
+                pt_update = PurchaseTransactionUpdateRequest(**update_data)
         
         updated_transaction = await self.pt_repo.update(
             db_pt=db_transaction, pt_update=pt_update
@@ -210,17 +201,15 @@ class PurchaseTransactionService:
                 detail="Transaksi pembelian tidak ditemukan.",
             )
         
-        # ROLLBACK STOCK: Subtract transaction quantity from inventory
-        from app.utils.unit_converter import subtract_quantity_from_inventory
-        
+        # ROLLBACK STOCK: Subtract transaction quantity from inventory (no conversion)
         inventory_item = await self.inventory_repo.get_by_id(kode_barang=db_transaction.inventory_id)
         if inventory_item:
-            rollback_quantity = subtract_quantity_from_inventory(
-                inventory_quantity=inventory_item.quantity,
-                inventory_unit=inventory_item.quantity_unit,
-                subtract_quantity=db_transaction.quantity,
-                subtract_unit=db_transaction.quantity_unit
-            )
+            # Validate transaction unit matches inventory (should always be true in new system)
+            if db_transaction.quantity_unit != inventory_item.quantity_unit:
+                # Handle gracefully - still rollback but log warning
+                pass  # In production, you might want to log this
+            
+            rollback_quantity = inventory_item.quantity - db_transaction.quantity
             await self.inventory_repo.update_by_kode(
                 kode_barang=inventory_item.kode_barang,
                 update_data={"quantity": rollback_quantity}

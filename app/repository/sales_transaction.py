@@ -31,7 +31,11 @@ class SalesTransactionRepository:
         Asynchronously creates a new sales transaction.
         The transaction_date is automatically set to the current timestamp if not provided.
         """
-        create_data = st_create.model_dump()
+        # Handle both dict and Pydantic model
+        if isinstance(st_create, dict):
+            create_data = st_create
+        else:
+            create_data = st_create.model_dump()
         
         # Set transaction_date if not provided
         if 'transaction_date' not in create_data or not create_data.get('transaction_date'):
@@ -93,10 +97,10 @@ class SalesTransactionRepository:
         count_result = await self.session.execute(count_statement)
         total_count = count_result.one()[0]
 
-        # Apply pagination
+        # Apply pagination and ordering
         offset = (page - 1) * limit
         paginated_statement = (
-            statement.order_by(SalesTransaction.id.desc()).offset(offset).limit(limit)
+            statement.order_by(SalesTransaction.transaction_date.desc()).offset(offset).limit(limit)
         )
 
         items_result = await self.session.execute(paginated_statement)

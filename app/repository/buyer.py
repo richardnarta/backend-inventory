@@ -44,9 +44,9 @@ class BuyerRepository:
         count_result = await self.session.execute(count_statement)
         total_count = count_result.one()[0]
 
-        # Apply pagination
+        # Apply pagination and ordering
         offset = (page - 1) * limit
-        paginated_statement = statement.order_by(Buyer.id).offset(offset).limit(limit)
+        paginated_statement = statement.order_by(Buyer.name.asc()).offset(offset).limit(limit)
         
         items_result = await self.session.execute(paginated_statement)
         items = items_result.scalars().all()

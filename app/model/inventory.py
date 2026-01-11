@@ -9,11 +9,18 @@ if TYPE_CHECKING:
 
 class QuantityUnit(str, Enum):
     """Enum for quantity units - stored as VARCHAR in database for flexibility"""
-    BUAH = "buah"
-    LUSIN = "lusin"
-    KODI = "kodi"
-    DUS = "dus"
-    BAL = "bal"
+    BATANG = "Batang"
+    DUS = "Dus"
+    KILOGRAM = "Kilogram"
+    KOTAK = "Kotak"
+    LEMBAR = "Lembar"
+    METER = "Meter"
+    PCS = "Pcs"
+    SAK = "Sak"
+    BAL = "Bal"
+    PAK = "Pak"
+    LUSIN = "Lusin"
+    ONS = "Ons"
 
 
 class Inventory(SQLModel, table=True):
@@ -39,7 +46,13 @@ class Inventory(SQLModel, table=True):
         description="Current stock quantity"
     )
     quantity_unit: str = Field(
-        description="Unit of measurement (buah, lusin, kodi, dus, bal)"
+        description="Unit of measurement (Batang, Dus, Kilogram, Kotak, Lembar, Meter, Pcs, Sak, Bal, Pak)"
+    )
+    
+    # Additional information
+    additional_note: Optional[str] = Field(
+        default="",
+        description="Additional notes or information about the inventory item"
     )
     
     # Pricing information
