@@ -18,6 +18,8 @@ services:
     depends_on:
       inventory_db:
         condition: service_healthy
+      inventory_alembic:
+        condition: service_completed_successfully
 
   # The PostgreSQL database service
   inventory_db:
