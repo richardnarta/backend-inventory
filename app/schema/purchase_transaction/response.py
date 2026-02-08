@@ -1,21 +1,35 @@
 from __future__ import annotations
-from pydantic import BaseModel, computed_field
-from typing import Optional
+from pydantic import BaseModel
+from typing import Optional, List
 from datetime import datetime
 from app.schema.base_response import BaseSingleResponse, BaseListResponse
 from app.schema.supplier.response import SupplierData
 from app.schema.inventory.response import InventoryData
 
-# Data Transfer Object
-class PurchaseTransactionData(BaseModel):
+# Data Transfer Object for Item
+class PurchaseTransactionItemData(BaseModel):
+    """Schema for individual item in purchase transaction response"""
     id: int
-    transaction_date: datetime
+    inventory_id: Optional[str]
     quantity: float
     quantity_unit: str
     price_per_unit: float
-    total_price: float
-    supplier: Optional[SupplierData] = None
+    subtotal: float
     inventory: Optional[InventoryData] = None
+
+    class Config:
+        from_attributes = True
+
+# Data Transfer Object for Transaction Header
+class PurchaseTransactionData(BaseModel):
+    """Schema for purchase transaction header response"""
+    id: int
+    transaction_date: datetime
+    supplier_id: Optional[int]
+    notes: Optional[str]
+    total_amount: float
+    supplier: Optional[SupplierData] = None
+    items: List[PurchaseTransactionItemData] = []
 
     class Config:
         from_attributes = True

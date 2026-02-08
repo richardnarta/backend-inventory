@@ -15,8 +15,9 @@ from app.schema.sales_transaction.response import (
 )
 from app.schema.base_response import BaseSingleResponse
 
+
 class SalesTransactionService:
-    """Service class for sales transaction-related business logic."""
+    """Service class for sales transaction-related business logic with multi-item support."""
 
     def __init__(
         self,
@@ -70,8 +71,8 @@ class SalesTransactionService:
         self, st_create: SalesTransactionCreateRequest
     ) -> SingleSalesTransactionResponse:
         """
-        Creates a sales transaction and automatically updates inventory stock.
-        Automatically uses inventory's quantity_unit.
+        Creates a sales transaction with multiple items and automatically updates inventory stock.
+        Validates stock availability for ALL items before creating transaction.
         """
         # Validate buyer if provided
         if st_create.buyer_id:
@@ -82,42 +83,88 @@ class SalesTransactionService:
                     detail="Buyer tidak ditemukan."
                 )
 
-        # Validate inventory item
-        inventory_item = await self.inventory_repo.get_by_id(kode_barang=st_create.inventory_id)
-        if not inventory_item:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Item inventory tidak ditemukan."
-            )
+        # Validate all inventory items AND check stock availability
+        inventory_items = {}
+        insufficient_items = []
         
-        # Check stock availability (using inventory's unit)
-        if inventory_item.quantity < st_create.quantity:
+        for item in st_create.items:
+            inventory_item = await self.inventory_repo.get_by_id(kode_barang=item.inventory_id)
+            if not inventory_item:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Item inventory '{item.inventory_id}' tidak ditemukan."
+                )
+            
+            # Check stock availability
+            if inventory_item.quantity < item.quantity:
+                insufficient_items.append({
+                    "kode_barang": item.inventory_id,
+                    "nama_barang": inventory_item.nama_barang,
+                    "available": inventory_item.quantity,
+                    "requested": item.quantity,
+                    "unit": inventory_item.quantity_unit
+                })
+            
+            inventory_items[item.inventory_id] = inventory_item
+
+        # If any item has insufficient stock, reject the entire transaction
+        if insufficient_items:
+            error_details = "; ".join([
+                f"{item['nama_barang']} (tersedia: {item['available']} {item['unit']}, diminta: {item['requested']} {item['unit']})"
+                for item in insufficient_items
+            ])
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Stok tidak mencukupi. Tersedia: {inventory_item.quantity} {inventory_item.quantity_unit}, "
-                       f"diminta: {st_create.quantity} {inventory_item.quantity_unit}"
+                detail=f"Stok tidak mencukupi untuk item: {error_details}"
             )
 
-        # Create transaction with inventory's quantity_unit
-        # Convert request to dict and add quantity_unit from inventory
-        transaction_data = st_create.model_dump()
-        transaction_data['quantity_unit'] = inventory_item.quantity_unit
-        
-        new_transaction = await self.st_repo.create(st_create=transaction_data)
-        
-        # AUTO-UPDATE INVENTORY STOCK (direct subtraction)
-        new_quantity = inventory_item.quantity - st_create.quantity
-        
-        # Update inventory with new quantity
-        await self.inventory_repo.update_by_kode(
-            kode_barang=inventory_item.kode_barang,
-            update_data={"quantity": new_quantity}
+        # Create transaction header
+        header_data = {
+            "transaction_date": st_create.transaction_date,
+            "buyer_id": st_create.buyer_id,
+            "notes": st_create.notes,
+            "total_amount": 0.0  # Will be calculated from items
+        }
+        transaction_header = await self.st_repo.create_header(header_data)
+
+        # Create items and update stock
+        total_amount = 0.0
+        for item_request in st_create.items:
+            inventory_item = inventory_items[item_request.inventory_id]
+            
+            # Calculate subtotal
+            subtotal = item_request.quantity * item_request.price_per_unit
+            total_amount += subtotal
+            
+            # Create item with inventory's quantity_unit
+            item_data = {
+                "sales_transaction_id": transaction_header.id,
+                "inventory_id": item_request.inventory_id,
+                "quantity": item_request.quantity,
+                "quantity_unit": inventory_item.quantity_unit,  # Use inventory's unit
+                "price_per_unit": item_request.price_per_unit,
+                "subtotal": subtotal
+            }
+            await self.st_repo.create_item(item_data)
+            
+            # AUTO-UPDATE INVENTORY STOCK (subtract quantity)
+            new_quantity = inventory_item.quantity - item_request.quantity
+            await self.inventory_repo.update_by_kode(
+                kode_barang=inventory_item.kode_barang,
+                update_data={"quantity": new_quantity}
+            )
+
+        # Update header with total_amount
+        await self.st_repo.update_header(
+            transaction_header,
+            {"total_amount": total_amount}
         )
-        
-        created_transaction = await self.st_repo.get_by_id(st_id=new_transaction.id)
+
+        # Reload transaction with all relationships
+        created_transaction = await self.st_repo.get_by_id(st_id=transaction_header.id)
 
         return SingleSalesTransactionResponse(
-            message="Berhasil membuat data transaksi penjualan dan memperbarui stok inventory.",
+            message="Berhasil membuat transaksi penjualan dengan multiple items dan memperbarui stok inventory.",
             data=created_transaction
         )
 
@@ -126,16 +173,16 @@ class SalesTransactionService:
     ) -> SingleSalesTransactionResponse:
         """
         Updates a sales transaction with automatic stock adjustment.
-        If quantity changes, reverses old stock change and applies new one.
-        Automatically uses inventory's quantity_unit.
+        Rollbacks old items stock and applies new items stock.
         """
+        # Get existing transaction
         db_transaction = await self.st_repo.get_by_id(st_id=st_id)
         if not db_transaction:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Transaksi penjualan tidak ditemukan.",
             )
-        
+
         # Validate buyer if being updated
         if st_update.buyer_id is not None:
             buyer = await self.buyer_repo.get_by_id(buyer_id=st_update.buyer_id)
@@ -144,61 +191,102 @@ class SalesTransactionService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Buyer tidak ditemukan."
                 )
-        
-        # Validate inventory if being updated
-        new_inventory_id = st_update.inventory_id if st_update.inventory_id is not None else db_transaction.inventory_id
-        inventory_item = await self.inventory_repo.get_by_id(kode_barang=new_inventory_id)
-        if not inventory_item:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Item inventory tidak ditemukan."
-            )
-        
-        # Check if quantity or inventory changed - need stock adjustment
-        quantity_changed = (st_update.quantity is not None and st_update.quantity != db_transaction.quantity)
-        inventory_changed = (st_update.inventory_id is not None and st_update.inventory_id != db_transaction.inventory_id)
-        
-        if quantity_changed or inventory_changed:
-            # STEP 1: Rollback old transaction (add back old quantity to current stock)
-            old_inventory = inventory_item if not inventory_changed else await self.inventory_repo.get_by_id(kode_barang=db_transaction.inventory_id)
-            if old_inventory:
-                rollback_quantity = old_inventory.quantity + db_transaction.quantity
-                await self.inventory_repo.update_by_kode(
-                    kode_barang=old_inventory.kode_barang,
-                    update_data={"quantity": rollback_quantity}
-                )
+
+        # STEP 1: Rollback stock for all old items
+        for old_item in db_transaction.items:
+            if old_item.inventory_id:
+                inventory_item = await self.inventory_repo.get_by_id(kode_barang=old_item.inventory_id)
+                if inventory_item:
+                    rollback_quantity = inventory_item.quantity + old_item.quantity
+                    await self.inventory_repo.update_by_kode(
+                        kode_barang=inventory_item.kode_barang,
+                        update_data={"quantity": rollback_quantity}
+                    )
+
+        # STEP 2: Delete all old items
+        await self.st_repo.delete_all_items(st_id)
+
+        # STEP 3: Create new items if provided
+        total_amount = 0.0
+        if st_update.items:
+            # Validate all inventory items AND check stock
+            inventory_items = {}
+            insufficient_items = []
             
-            # STEP 2: Apply new transaction (subtract new quantity)
-            new_quantity = st_update.quantity if st_update.quantity is not None else db_transaction.quantity
-            
-            # Reload inventory to get latest quantity after rollback
-            inventory_item = await self.inventory_repo.get_by_id(kode_barang=new_inventory_id)
-            
-            # Validate stock availability
-            if inventory_item.quantity < new_quantity:
+            for item in st_update.items:
+                inventory_item = await self.inventory_repo.get_by_id(kode_barang=item.inventory_id)
+                if not inventory_item:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Item inventory '{item.inventory_id}' tidak ditemukan."
+                    )
+                
+                # Check stock (after rollback)
+                if inventory_item.quantity < item.quantity:
+                    insufficient_items.append({
+                        "kode_barang": item.inventory_id,
+                        "nama_barang": inventory_item.nama_barang,
+                        "available": inventory_item.quantity,
+                        "requested": item.quantity,
+                        "unit": inventory_item.quantity_unit
+                    })
+                
+                inventory_items[item.inventory_id] = inventory_item
+
+            # If any item has insufficient stock, reject
+            if insufficient_items:
+                error_details = "; ".join([
+                    f"{item['nama_barang']} (tersedia: {item['available']} {item['unit']}, diminta: {item['requested']} {item['unit']})"
+                    for item in insufficient_items
+                ])
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Stok tidak mencukupi setelah rollback. Tersedia: {inventory_item.quantity} {inventory_item.quantity_unit}, "
-                           f"diminta: {new_quantity} {inventory_item.quantity_unit}"
+                    detail=f"Stok tidak mencukupi setelah rollback untuk item: {error_details}"
                 )
-            
-            updated_stock = inventory_item.quantity - new_quantity
-            await self.inventory_repo.update_by_kode(
-                kode_barang=inventory_item.kode_barang,
-                update_data={"quantity": updated_stock}
-            )
-            
-            # If inventory changed, update quantity_unit to match new inventory
-            if inventory_changed:
-                update_data = st_update.model_dump(exclude_unset=True)
-                update_data['quantity_unit'] = inventory_item.quantity_unit
-                # Create a new update request with the updated unit
-                from app.schema.sales_transaction.request import SalesTransactionUpdateRequest
-                st_update = SalesTransactionUpdateRequest(**update_data)
+
+            # Create new items and update stock
+            for item_request in st_update.items:
+                inventory_item = inventory_items[item_request.inventory_id]
+                
+                # Calculate subtotal
+                subtotal = item_request.quantity * item_request.price_per_unit
+                total_amount += subtotal
+                
+                # Create item
+                item_data = {
+                    "sales_transaction_id": st_id,
+                    "inventory_id": item_request.inventory_id,
+                    "quantity": item_request.quantity,
+                    "quantity_unit": inventory_item.quantity_unit,
+                    "price_per_unit": item_request.price_per_unit,
+                    "subtotal": subtotal
+                }
+                await self.st_repo.create_item(item_data)
+                
+                # AUTO-UPDATE INVENTORY STOCK (subtract new quantity)
+                new_quantity = inventory_item.quantity - item_request.quantity
+                await self.inventory_repo.update_by_kode(
+                    kode_barang=inventory_item.kode_barang,
+                    update_data={"quantity": new_quantity}
+                )
+
+        # STEP 4: Update header
+        update_data = {}
+        if st_update.transaction_date is not None:
+            update_data["transaction_date"] = st_update.transaction_date
+        if st_update.buyer_id is not None:
+            update_data["buyer_id"] = st_update.buyer_id
+        if st_update.notes is not None:
+            update_data["notes"] = st_update.notes
+        if st_update.items:
+            update_data["total_amount"] = total_amount
+
+        if update_data:
+            await self.st_repo.update_header(db_transaction, update_data)
+
+        # Reload transaction
+        updated_transaction = await self.st_repo.get_by_id(st_id=st_id)
         
-        updated_transaction = await self.st_repo.update(
-            db_st=db_transaction, st_update=st_update
-        )
         return SingleSalesTransactionResponse(
             message="Berhasil mengupdate transaksi penjualan dan menyesuaikan stok.",
             data=updated_transaction
@@ -206,8 +294,7 @@ class SalesTransactionService:
 
     async def delete(self, st_id: int) -> BaseSingleResponse:
         """
-        Deletes a sales transaction with automatic stock rollback.
-        Adds back the transaction quantity to inventory.
+        Deletes a sales transaction with automatic stock rollback for all items.
         """
         db_transaction = await self.st_repo.get_by_id(st_id=st_id)
         if not db_transaction:
@@ -215,22 +302,21 @@ class SalesTransactionService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Transaksi penjualan tidak ditemukan.",
             )
-        
-        # ROLLBACK STOCK: Add back transaction quantity to inventory (no conversion)
-        inventory_item = await self.inventory_repo.get_by_id(kode_barang=db_transaction.inventory_id)
-        if inventory_item:
-            # Validate transaction unit matches inventory (should always be true in new system)
-            if db_transaction.quantity_unit != inventory_item.quantity_unit:
-                # Handle gracefully - still rollback but log warning
-                pass  # In production, you might want to log this
-            
-            rollback_quantity = inventory_item.quantity + db_transaction.quantity
-            await self.inventory_repo.update_by_kode(
-                kode_barang=inventory_item.kode_barang,
-                update_data={"quantity": rollback_quantity}
-            )
 
+        # ROLLBACK STOCK: Add back all items quantity to inventory
+        for item in db_transaction.items:
+            if item.inventory_id:
+                inventory_item = await self.inventory_repo.get_by_id(kode_barang=item.inventory_id)
+                if inventory_item:
+                    rollback_quantity = inventory_item.quantity + item.quantity
+                    await self.inventory_repo.update_by_kode(
+                        kode_barang=inventory_item.kode_barang,
+                        update_data={"quantity": rollback_quantity}
+                    )
+
+        # Delete transaction (will cascade delete items)
         await self.st_repo.delete(db_st=db_transaction)
+        
         return BaseSingleResponse(
-            message=f"Berhasil menghapus transaksi penjualan dengan id {st_id} dan rollback stok."
+            message=f"Berhasil menghapus transaksi penjualan dengan id {st_id} dan rollback stok untuk {len(db_transaction.items)} item(s)."
         )

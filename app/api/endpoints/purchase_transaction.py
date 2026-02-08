@@ -33,10 +33,10 @@ async def create_purchase_transaction(
     service: PurchaseTransactionService = Depends(get_purchase_transaction_service),
 ):
     """
-    ### Create a new Purchase Transaction.
+    ### Create a new Purchase Transaction with Multiple Items.
 
-    This endpoint records a new purchase of inventory items from a supplier.
-    (Recording only - does not automatically update inventory stock)
+    This endpoint creates a purchase transaction that can contain multiple inventory items.
+    Automatically updates inventory stock for all items (+quantity for each item).
     """
     return await service.create(pt_create=request_data)
 
@@ -85,8 +85,9 @@ async def update_purchase_transaction(
     """
     ### Update a Purchase Transaction.
 
-    Modify an existing purchase transaction.
-    (Recording only - does not adjust inventory stock)
+    Updates transaction header and/or items. Automatically adjusts inventory stock:
+    - Rollbacks old items stock
+    - Applies new items stock
     """
     return await service.update(pt_id=pt_id, pt_update=request_data)
 
@@ -98,7 +99,7 @@ async def delete_purchase_transaction(
     """
     ### Delete a Purchase Transaction.
 
-    Permanently remove a purchase transaction record.
-    (Recording only - does not reverse inventory stock)
+    Permanently deletes purchase transaction and all items.
+    Automatically rollbacks inventory stock for all items.
     """
     return await service.delete(pt_id=pt_id)

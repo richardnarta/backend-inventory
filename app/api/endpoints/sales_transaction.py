@@ -33,10 +33,11 @@ async def create_sales_transaction(
     service: SalesTransactionService = Depends(get_sales_transaction_service),
 ):
     """
-    ### Create a new Sales Transaction.
+    ### Create a new Sales Transaction with Multiple Items.
 
-    This endpoint records a new sale of inventory items to a buyer.
-    (Recording only - does not automatically update inventory stock)
+    Creates a sales transaction that can contain multiple inventory items.
+    Validates stock availability for ALL items before creating transaction.
+    Automatically updates inventory stock for all items (-quantity for each item).
     """
     return await service.create(st_create=request_data)
 
@@ -85,8 +86,10 @@ async def update_sales_transaction(
     """
     ### Update a Sales Transaction.
 
-    Modify an existing sales transaction.
-    (Recording only - does not adjust inventory stock)
+    Updates transaction header and/or items. Automatically adjusts inventory stock:
+    - Rollbacks old items stock
+    - Validates new items stock availability
+    - Applies new items stock
     """
     return await service.update(st_id=st_id, st_update=request_data)
 
@@ -98,7 +101,7 @@ async def delete_sales_transaction(
     """
     ### Delete a Sales Transaction.
 
-    Permanently remove a sales transaction record.
-    (Recording only - does not reverse inventory stock)
+    Permanently deletes sales transaction and all items.
+    Automatically rollbacks inventory stock for all items.
     """
     return await service.delete(st_id=st_id)

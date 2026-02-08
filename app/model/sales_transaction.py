@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
 
 if TYPE_CHECKING:
@@ -9,8 +9,8 @@ if TYPE_CHECKING:
 
 class SalesTransaction(SQLModel, table=True):
     """
-    SQLModel for sales transactions.
-    Records sales entries without automatic stock updates.
+    SQLModel for sales transaction header.
+    Represents a sales invoice/receipt that can contain multiple items.
     """
     __tablename__ = "sales_transaction"
 
@@ -35,6 +35,46 @@ class SalesTransaction(SQLModel, table=True):
         description="Foreign key to the Buyer (customer) table",
         sa_column_kwargs={"nullable": True}
     )
+
+    # Transaction header fields
+    notes: Optional[str] = Field(
+        default=None,
+        description="Transaction notes or remarks"
+    )
+    total_amount: float = Field(
+        default=0.0,
+        ge=0,
+        description="Total amount for all items in this transaction"
+    )
+    
+    # Relationships
+    buyer: Optional["Buyer"] = Relationship(back_populates="sales")
+    items: List["SalesTransactionItem"] = Relationship(
+        back_populates="transaction",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+
+class SalesTransactionItem(SQLModel, table=True):
+    """
+    SQLModel for individual items in a sales transaction.
+    Each item represents one product line in the sales invoice.
+    """
+    __tablename__ = "sales_transaction_item"
+
+    # Primary Key
+    id: Optional[int] = Field(
+        default=None,
+        primary_key=True,
+        description="Auto-incrementing primary key for the item"
+    )
+
+    # Foreign Keys
+    sales_transaction_id: int = Field(
+        foreign_key="sales_transaction.id",
+        index=True,
+        description="Foreign key to the SalesTransaction header"
+    )
     inventory_id: Optional[str] = Field(
         default=None,
         foreign_key="inventory.kode_barang",
@@ -43,7 +83,7 @@ class SalesTransaction(SQLModel, table=True):
         sa_column_kwargs={"nullable": True}
     )
 
-    # Transaction details
+    # Item details
     quantity: float = Field(
         default=0.0,
         ge=0,
@@ -57,12 +97,13 @@ class SalesTransaction(SQLModel, table=True):
         ge=0,
         description="Price per unit at the time of sale"
     )
-    total_price: float = Field(
+    subtotal: float = Field(
         default=0.0,
         ge=0,
-        description="Total transaction price"
+        description="Item subtotal (quantity × price_per_unit)"
     )
     
     # Relationships
-    buyer: Optional["Buyer"] = Relationship(back_populates="sales")
-    inventory: Optional["Inventory"] = Relationship(back_populates="sales")
+    transaction: Optional["SalesTransaction"] = Relationship(back_populates="items")
+    inventory: Optional["Inventory"] = Relationship(back_populates="sales_items")
+

@@ -73,11 +73,11 @@ class Inventory(SQLModel, table=True):
     )
     
     # Relationships
-    sales: List["SalesTransaction"] = Relationship(
+    sales_items: List["SalesTransactionItem"] = Relationship(
         back_populates="inventory",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-    purchases: List["PurchaseTransaction"] = Relationship(
+    purchase_items: List["PurchaseTransactionItem"] = Relationship(
         back_populates="inventory",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
