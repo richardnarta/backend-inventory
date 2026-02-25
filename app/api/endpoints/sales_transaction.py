@@ -16,7 +16,7 @@ from app.schema.sales_transaction.response import (
     SingleSalesTransactionResponse,
 )
 from app.schema.base_response import BaseSingleResponse
-from app.di.deps import get_current_user
+from app.di.deps import get_current_user, require_write_access
 
 # --- Router Initialization ---
 router = APIRouter(
@@ -27,7 +27,7 @@ router = APIRouter(
 
 # --- API Endpoints ---
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleSalesTransactionResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleSalesTransactionResponse, dependencies=[Depends(require_write_access)])
 async def create_sales_transaction(
     request_data: SalesTransactionCreateRequest,
     service: SalesTransactionService = Depends(get_sales_transaction_service),
@@ -77,7 +77,7 @@ async def get_sales_transaction_by_id(
     """
     return await service.get_by_id(st_id=st_id)
 
-@router.put("/{st_id}", response_model=SingleSalesTransactionResponse)
+@router.put("/{st_id}", response_model=SingleSalesTransactionResponse, dependencies=[Depends(require_write_access)])
 async def update_sales_transaction(
     st_id: int,
     request_data: SalesTransactionUpdateRequest,
@@ -93,7 +93,7 @@ async def update_sales_transaction(
     """
     return await service.update(st_id=st_id, st_update=request_data)
 
-@router.delete("/{st_id}", response_model=BaseSingleResponse)
+@router.delete("/{st_id}", response_model=BaseSingleResponse, dependencies=[Depends(require_write_access)])
 async def delete_sales_transaction(
     st_id: int,
     service: SalesTransactionService = Depends(get_sales_transaction_service),

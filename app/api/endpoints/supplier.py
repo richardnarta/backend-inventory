@@ -12,7 +12,7 @@ from app.schema.supplier.response import (
     SingleSupplierResponse,
 )
 from app.schema.base_response import BaseSingleResponse
-from app.di.deps import get_current_user
+from app.di.deps import get_current_user, require_write_access
 
 # --- Router Initialization ---
 router = APIRouter(
@@ -23,7 +23,7 @@ router = APIRouter(
 
 # --- API Endpoints ---
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleSupplierResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleSupplierResponse, dependencies=[Depends(require_write_access)])
 async def create_supplier(
     request_data: SupplierCreateRequest,
     service: SupplierService = Depends(get_supplier_service),
@@ -65,7 +65,7 @@ async def get_supplier_by_id(
     """
     return await service.get_by_id(supplier_id=supplier_id)
 
-@router.put("/{supplier_id}", response_model=SingleSupplierResponse)
+@router.put("/{supplier_id}", response_model=SingleSupplierResponse, dependencies=[Depends(require_write_access)])
 async def update_supplier(
     supplier_id: int,
     request_data: SupplierUpdateRequest,
@@ -79,7 +79,7 @@ async def update_supplier(
     """
     return await service.update(supplier_id=supplier_id, supplier_update=request_data)
 
-@router.delete("/{supplier_id}", response_model=BaseSingleResponse)
+@router.delete("/{supplier_id}", response_model=BaseSingleResponse, dependencies=[Depends(require_write_access)])
 async def delete_supplier(
     supplier_id: int,
     service: SupplierService = Depends(get_supplier_service),

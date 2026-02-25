@@ -12,7 +12,7 @@ from app.schema.buyer.response import (
     SingleBuyerResponse,
 )
 from app.schema.base_response import BaseSingleResponse
-from app.di.deps import get_current_user
+from app.di.deps import get_current_user, require_write_access
 
 # --- Router Initialization ---
 router = APIRouter(
@@ -23,7 +23,7 @@ router = APIRouter(
 
 # --- API Endpoints ---
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleBuyerResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleBuyerResponse, dependencies=[Depends(require_write_access)])
 async def create_buyer(
     request_data: BuyerCreateRequest,
     service: BuyerService = Depends(get_buyer_service),
@@ -68,7 +68,7 @@ async def get_buyer_by_id(
     """
     return await service.get_by_id(buyer_id=buyer_id)
 
-@router.put("/{buyer_id}", response_model=SingleBuyerResponse)
+@router.put("/{buyer_id}", response_model=SingleBuyerResponse, dependencies=[Depends(require_write_access)])
 async def update_buyer(
     buyer_id: int,
     request_data: BuyerUpdateRequest,
@@ -82,7 +82,7 @@ async def update_buyer(
     """
     return await service.update(buyer_id=buyer_id, buyer_update=request_data)
 
-@router.delete("/{buyer_id}", response_model=BaseSingleResponse)
+@router.delete("/{buyer_id}", response_model=BaseSingleResponse, dependencies=[Depends(require_write_access)])
 async def delete_buyer(
     buyer_id: int,
     service: BuyerService = Depends(get_buyer_service),

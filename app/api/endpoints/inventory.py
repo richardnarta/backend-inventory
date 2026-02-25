@@ -13,7 +13,7 @@ from app.schema.inventory.response import (
 )
 from app.schema.inventory.batch_response import BatchUploadResponse
 from app.schema.base_response import BaseSingleResponse
-from app.di.deps import get_current_user
+from app.di.deps import get_current_user, require_write_access
 from app.utils.excel_processor import process_excel_file
 from app.utils.excel_exporter import generate_inventory_export
 
@@ -56,7 +56,7 @@ async def export_inventory_excel(
     
     return generate_inventory_export(inventories)
 
-@router.post("/batch-upload", status_code=status.HTTP_201_CREATED, response_model=BatchUploadResponse)
+@router.post("/batch-upload", status_code=status.HTTP_201_CREATED, response_model=BatchUploadResponse, dependencies=[Depends(require_write_access)])
 async def batch_upload_inventory(
     file: UploadFile = File(..., description="Excel file (.xlsx or .xls) containing inventory data"),
     service: InventoryService = Depends(get_inventory_service),
@@ -113,7 +113,7 @@ async def batch_upload_inventory(
         duplicate_skipped=upload_result["duplicate_count"]
     )
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleInventoryResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleInventoryResponse, dependencies=[Depends(require_write_access)])
 async def create_inventory(
     request_data: InventoryCreateRequest,
     service: InventoryService = Depends(get_inventory_service),
@@ -168,7 +168,7 @@ async def get_inventory_by_id(
     """
     return await service.get_by_id(kode_barang=kode_barang)
 
-@router.put("/{kode_barang}", response_model=SingleInventoryResponse)
+@router.put("/{kode_barang}", response_model=SingleInventoryResponse, dependencies=[Depends(require_write_access)])
 async def update_inventory(
     kode_barang: str,
     request_data: InventoryUpdateRequest,
@@ -181,7 +181,7 @@ async def update_inventory(
     """
     return await service.update(kode_barang=kode_barang, inventory_update=request_data)
 
-@router.delete("/{kode_barang}", response_model=BaseSingleResponse)
+@router.delete("/{kode_barang}", response_model=BaseSingleResponse, dependencies=[Depends(require_write_access)])
 async def delete_inventory(
     kode_barang: str,
     service: InventoryService = Depends(get_inventory_service),

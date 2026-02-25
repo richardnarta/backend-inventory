@@ -29,7 +29,8 @@ class AuthService:
         user_model = User(
             nama=user_create.nama,
             username=user_create.username,
-            hashed_password=hashed_pwd
+            hashed_password=hashed_pwd,
+            role=user_create.role,
         )
         new_user = await self.user_repo.create(user_data=user_model)
         return SingleUserResponse(message="Registrasi berhasil.", data=UserData.model_validate(new_user))
@@ -39,8 +40,8 @@ class AuthService:
         if not user or not verify_password(form_data.password, user.hashed_password):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Username atau password salah.")
 
-        access_token = create_access_token(subject=user.username)
-        refresh_token = create_refresh_token(subject=user.username)
+        access_token = create_access_token(subject=user.username, role=user.role.value)
+        refresh_token = create_refresh_token(subject=user.username, role=user.role.value)
         
         expires_at = datetime.now() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         await self.rt_repo.create(token=refresh_token, user_id=user.id, expires_at=expires_at)
@@ -73,8 +74,12 @@ class AuthService:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token tidak valid atau sudah kedaluwarsa.")
         
         PROD = not settings.DEBUG
-            
-        new_access_token = create_access_token(subject=db_token.user.username)
+
+        # Re-embed role from DB user to ensure token always reflects current role
+        new_access_token = create_access_token(
+            subject=db_token.user.username,
+            role=db_token.user.role.value
+        )
 
         response.set_cookie(key="access_token", value=new_access_token, httponly=True, secure=PROD, samesite="none" if PROD else "lax")
         return BaseSingleResponse(message="Token berhasil diperbarui.")

@@ -16,7 +16,7 @@ from app.schema.purchase_transaction.response import (
     SinglePurchaseTransactionResponse,
 )
 from app.schema.base_response import BaseSingleResponse
-from app.di.deps import get_current_user
+from app.di.deps import get_current_user, require_write_access
 
 # --- Router Initialization ---
 router = APIRouter(
@@ -27,7 +27,7 @@ router = APIRouter(
 
 # --- API Endpoints ---
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=SinglePurchaseTransactionResponse)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SinglePurchaseTransactionResponse, dependencies=[Depends(require_write_access)])
 async def create_purchase_transaction(
     request_data: PurchaseTransactionCreateRequest,
     service: PurchaseTransactionService = Depends(get_purchase_transaction_service),
@@ -76,7 +76,7 @@ async def get_purchase_transaction_by_id(
     """
     return await service.get_by_id(pt_id=pt_id)
 
-@router.put("/{pt_id}", response_model=SinglePurchaseTransactionResponse)
+@router.put("/{pt_id}", response_model=SinglePurchaseTransactionResponse, dependencies=[Depends(require_write_access)])
 async def update_purchase_transaction(
     pt_id: int,
     request_data: PurchaseTransactionUpdateRequest,
@@ -91,7 +91,7 @@ async def update_purchase_transaction(
     """
     return await service.update(pt_id=pt_id, pt_update=request_data)
 
-@router.delete("/{pt_id}", response_model=BaseSingleResponse)
+@router.delete("/{pt_id}", response_model=BaseSingleResponse, dependencies=[Depends(require_write_access)])
 async def delete_purchase_transaction(
     pt_id: int,
     service: PurchaseTransactionService = Depends(get_purchase_transaction_service),

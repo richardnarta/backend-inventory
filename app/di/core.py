@@ -19,6 +19,7 @@ from app.service.purchase_transaction import PurchaseTransactionService
 from app.service.sales_transaction import SalesTransactionService
 from app.service.supplier import SupplierService
 from app.service.auth import AuthService
+from app.service.user import UserService
 
 
 # --- Base Repositories (used by multiple services) ---
@@ -75,6 +76,11 @@ def get_auth_service(
     rt_repo: RefreshTokenRepository = Depends(get_refresh_token_repo)
 ) -> AuthService:
     return AuthService(user_repo=user_repo, rt_repo=rt_repo)
+
+def get_user_service(
+    user_repo: UserRepository = Depends(get_user_repo),
+) -> UserService:
+    return UserService(user_repo=user_repo)
 
 
 # Helper function to get current user (exported for use in endpoints)

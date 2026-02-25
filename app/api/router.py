@@ -7,6 +7,7 @@ from app.api.endpoints.sales_transaction import router as sales_transaction_rout
 from app.api.endpoints.buyer import router as buyer_router
 from app.api.endpoints.supplier import router as supplier_router
 from app.api.endpoints.auth import router as auth_router
+from app.api.endpoints.user import router as user_router
 
 
 # Create main API router
@@ -23,6 +24,10 @@ common_responses = {
 api_router.include_router(
     auth_router, 
     responses=common_responses
+)
+api_router.include_router(
+    user_router,
+    responses=common_responses,
 )
 api_router.include_router(
     inventory_router,
