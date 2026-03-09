@@ -45,4 +45,4 @@ async def create_db_and_tables() -> None:
 
 async def init_db() -> None:
     """Initialize the database with required tables."""
-    await create_db_and_tables()
+    pass

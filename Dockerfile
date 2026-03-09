@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir --upgrade pip -r requirement.txt
 COPY . .
 
 # Expose the port the app runs on
-EXPOSE 8001
+EXPOSE 8002
 
 # Define the command to run the application
 # Uvicorn is an ASGI server, ideal for FastAPI.
@@ -24,4 +24,4 @@ EXPOSE 8001
 # --port 8000: The port to run on.
 # main:app: Tells uvicorn to look for an object named 'app' in a file named 'main.py'.
 # You should change 'main:app' to match your main application file and instance.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]

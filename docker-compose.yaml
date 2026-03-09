@@ -1,32 +1,32 @@
 services:
   # The FastAPI backend service
-  inventory_backend:
+  optik_backend:
     build: .
-    container_name: inventory_fastapi_backend
-    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+    container_name: optik_fastapi_backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
     volumes:
       - .:/app
     ports:
-      - "8001:8001"
+      - "8002:8002"
     # Load environment variables from a .env file
     env_file:
       - ./.env
     # Environment variables needed by the FastAPI application
     # These are now dynamically set from the .env file
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@inventory_db:${POSTGRES_PORT}/${POSTGRES_DB}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@optik_db:${POSTGRES_PORT}/${POSTGRES_DB}
     depends_on:
-      inventory_db:
+      optik_db:
         condition: service_healthy
-      inventory_alembic:
+      optik_alembic:
         condition: service_completed_successfully
 
   # The PostgreSQL database service
-  inventory_db:
+  optik_db:
     image: postgres:15-alpine
-    container_name: inventory_postgres_db
+    container_name: optik_postgres_db
     volumes:
-      - inventory_postgres_data:/var/lib/postgresql/data/
+      - optik_postgres_data:/var/lib/postgresql/data/
     # Load environment variables from a .env file
     env_file:
       - ./.env
@@ -42,13 +42,13 @@ services:
       timeout: 5s
       retries: 5
 
-  inventory_alembic:
+  optik_alembic:
     build: .
-    container_name: inventory_alembic_migration
+    container_name: optik_alembic_migration
     env_file:
       - ./.env
     depends_on:
-      inventory_db:
+      optik_db:
         condition: service_healthy
     command: ['alembic', 'upgrade', 'head']
     profiles:
@@ -56,4 +56,4 @@ services:
 
 # Define the named volume for data persistence
 volumes:
-  inventory_postgres_data:
+  optik_postgres_data:
