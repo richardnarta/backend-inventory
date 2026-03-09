@@ -9,18 +9,21 @@ if TYPE_CHECKING:
 
 class QuantityUnit(str, Enum):
     """Enum for quantity units - stored as VARCHAR in database for flexibility"""
+    BAL = "Bal"
     BATANG = "Batang"
+    BUAH = "Buah"
     DUS = "Dus"
+    GULUNG = "Gulung"
     KILOGRAM = "Kilogram"
     KOTAK = "Kotak"
     LEMBAR = "Lembar"
+    LUSIN = "Lusin"
     METER = "Meter"
+    ONS = "Ons"
+    PAK = "Pak"
+    PASANG = "Pasang"
     PCS = "Pcs"
     SAK = "Sak"
-    BAL = "Bal"
-    PAK = "Pak"
-    LUSIN = "Lusin"
-    ONS = "Ons"
 
 
 class Inventory(SQLModel, table=True):
@@ -74,10 +77,8 @@ class Inventory(SQLModel, table=True):
     
     # Relationships
     sales_items: List["SalesTransactionItem"] = Relationship(
-        back_populates="inventory",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="inventory"
     )
     purchase_items: List["PurchaseTransactionItem"] = Relationship(
-        back_populates="inventory",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+        back_populates="inventory"
     )

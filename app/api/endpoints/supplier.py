@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, status, Query
+from pydantic import BaseModel
 
 # --- Dependency Imports ---
 from app.service.supplier import SupplierService
@@ -13,6 +14,12 @@ from app.schema.supplier.response import (
 )
 from app.schema.base_response import BaseSingleResponse
 from app.di.deps import get_current_user, require_write_access
+
+# --- Request Body Schema for Bulk Delete ---
+class BulkDeleteIntRequest(BaseModel):
+    ids: Optional[List[int]] = None
+    delete_all: bool = False
+
 
 # --- Router Initialization ---
 router = APIRouter(
@@ -90,3 +97,17 @@ async def delete_supplier(
     Permanently remove a supplier from the database by their unique ID.
     """
     return await service.delete(supplier_id=supplier_id)
+
+@router.delete("/bulk/delete", response_model=BaseSingleResponse, dependencies=[Depends(require_write_access)])
+async def bulk_delete_suppliers(
+    request_data: BulkDeleteIntRequest,
+    service: SupplierService = Depends(get_supplier_service),
+):
+    """
+    ### Bulk Delete Suppliers.
+
+    Delete multiple suppliers at once.
+    - **delete_all**: If true, deletes ALL suppliers.
+    - **ids**: List of supplier IDs to delete.
+    """
+    return await service.bulk_delete(ids=request_data.ids, delete_all=request_data.delete_all)

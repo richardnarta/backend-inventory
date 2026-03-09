@@ -110,6 +110,41 @@ class InventoryService:
         return BaseSingleResponse(
             message=f"Berhasil menghapus data barang dengan kode {kode_barang}."
         )
+
+    async def bulk_delete(self, ids: Optional[list], delete_all: bool) -> BaseSingleResponse:
+        """Bulk delete inventory items by list of kode_barang or delete all"""
+        from sqlmodel import select, delete as sql_delete
+        from app.model.inventory import Inventory
+
+        if delete_all:
+            # Delete all inventories
+            all_items, _ = await self.inventory_repo.get_all(page=1, limit=999999)
+            deleted_count = 0
+            for item in all_items:
+                await self.inventory_repo.delete(db_inventory=item)
+                deleted_count += 1
+            return BaseSingleResponse(
+                message=f"Berhasil menghapus semua {deleted_count} data barang."
+            )
+        elif ids:
+            deleted_count = 0
+            not_found = []
+            for kode in ids:
+                item = await self.inventory_repo.get_by_id(kode_barang=kode)
+                if item:
+                    await self.inventory_repo.delete(db_inventory=item)
+                    deleted_count += 1
+                else:
+                    not_found.append(kode)
+            msg = f"Berhasil menghapus {deleted_count} data barang."
+            if not_found:
+                msg += f" Tidak ditemukan: {', '.join(not_found)}."
+            return BaseSingleResponse(message=msg)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Harap berikan ids atau set delete_all=true."
+            )
     
     async def batch_upload_from_excel(self, items_data: list) -> dict:
         """
@@ -123,6 +158,7 @@ class InventoryService:
         """
         successful_count = 0
         duplicate_count = 0
+        errors = []
         
         for item_data in items_data:
             try:
@@ -134,6 +170,7 @@ class InventoryService:
                 if existing_item:
                     # Skip duplicates
                     duplicate_count += 1
+                    errors.append({"kode_barang": item_data['kode_barang'], "reason": "Kode barang sudah ada (duplikat)."})
                     continue
                 
                 # Create new inventory item
@@ -143,9 +180,11 @@ class InventoryService:
                 
             except Exception as e:
                 # Skip items that fail to create
+                errors.append({"kode_barang": item_data.get('kode_barang', 'Unknown'), "reason": f"Gagal menyimpan ke database: {str(e)}"})
                 continue
         
         return {
             "successful_count": successful_count,
-            "duplicate_count": duplicate_count
+            "duplicate_count": duplicate_count,
+            "errors": errors
         }

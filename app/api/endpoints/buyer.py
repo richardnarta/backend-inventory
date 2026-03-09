@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, status, Query
+from pydantic import BaseModel
 
 # --- Dependency Imports ---
 from app.service.buyer import BuyerService
@@ -13,6 +14,12 @@ from app.schema.buyer.response import (
 )
 from app.schema.base_response import BaseSingleResponse
 from app.di.deps import get_current_user, require_write_access
+
+# --- Request Body Schema for Bulk Delete ---
+class BulkDeleteIntRequest(BaseModel):
+    ids: Optional[List[int]] = None
+    delete_all: bool = False
+
 
 # --- Router Initialization ---
 router = APIRouter(
@@ -94,3 +101,17 @@ async def delete_buyer(
     This will also cascade and delete related sales transactions and receivable records.
     """
     return await service.delete(buyer_id=buyer_id)
+
+@router.delete("/bulk/delete", response_model=BaseSingleResponse, dependencies=[Depends(require_write_access)])
+async def bulk_delete_buyers(
+    request_data: BulkDeleteIntRequest,
+    service: BuyerService = Depends(get_buyer_service),
+):
+    """
+    ### Bulk Delete Buyers.
+
+    Delete multiple buyers at once.
+    - **delete_all**: If true, deletes ALL buyers.
+    - **ids**: List of buyer IDs to delete.
+    """
+    return await service.bulk_delete(ids=request_data.ids, delete_all=request_data.delete_all)

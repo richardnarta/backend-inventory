@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
 from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import Column, String, ForeignKey
 
 if TYPE_CHECKING:
     from .buyer import Buyer
@@ -77,10 +78,18 @@ class SalesTransactionItem(SQLModel, table=True):
     )
     inventory_id: Optional[str] = Field(
         default=None,
-        foreign_key="inventory.kode_barang",
-        index=True,
         description="Foreign key to the Inventory item (kode_barang)",
-        sa_column_kwargs={"nullable": True}
+        sa_column=Column(String, ForeignKey("inventory.kode_barang", ondelete="SET NULL"), index=True, nullable=True)
+    )
+    
+    # Snapshot fields to preserve history if inventory item is deleted
+    item_code_snapshot: Optional[str] = Field(
+        default=None,
+        description="Snapshot of the item code at the time of sale"
+    )
+    item_name_snapshot: Optional[str] = Field(
+        default=None,
+        description="Snapshot of the item name at the time of sale"
     )
 
     # Item details

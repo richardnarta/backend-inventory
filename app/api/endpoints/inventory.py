@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, status, Query, UploadFile, File
+from pydantic import BaseModel
 
 # --- Dependency Imports ---
 from app.service.inventory import InventoryService
@@ -16,6 +17,12 @@ from app.schema.base_response import BaseSingleResponse
 from app.di.deps import get_current_user, require_write_access
 from app.utils.excel_processor import process_excel_file
 from app.utils.excel_exporter import generate_inventory_export
+
+# --- Request Body Schema for Bulk Delete ---
+class BulkDeleteInventoryRequest(BaseModel):
+    ids: Optional[List[str]] = None
+    delete_all: bool = False
+
 
 # --- Router Initialization ---
 router = APIRouter(
@@ -97,12 +104,15 @@ async def batch_upload_inventory(
     - Empty rows will be skipped
     """
     # Process Excel file
-    valid_items, skipped_count, new_units = await process_excel_file(file)
+    valid_items, skipped_count, new_units, parsing_errors = await process_excel_file(file)
     
     # Batch upload to database
     upload_result = await service.batch_upload_from_excel(valid_items)
     
     total_processed = len(valid_items) + skipped_count
+    
+    # Combine errors
+    all_errors = parsing_errors + upload_result.get("errors", [])
     
     return BatchUploadResponse(
         message=f"Berhasil memproses {total_processed} baris data.",
@@ -110,7 +120,8 @@ async def batch_upload_inventory(
         successful_imports=upload_result["successful_count"],
         skipped_rows=skipped_count,
         new_units_detected=new_units,
-        duplicate_skipped=upload_result["duplicate_count"]
+        duplicate_skipped=upload_result["duplicate_count"],
+        errors=all_errors
     )
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=SingleInventoryResponse, dependencies=[Depends(require_write_access)])
@@ -193,3 +204,17 @@ async def delete_inventory(
     **Warning**: This can fail if the item is referenced in existing transactions.
     """
     return await service.delete(kode_barang=kode_barang)
+
+@router.delete("/bulk/delete", response_model=BaseSingleResponse, dependencies=[Depends(require_write_access)])
+async def bulk_delete_inventory(
+    request_data: BulkDeleteInventoryRequest,
+    service: InventoryService = Depends(get_inventory_service),
+):
+    """
+    ### Bulk Delete Inventory items.
+
+    Delete multiple inventory items at once.
+    - **delete_all**: If true, deletes ALL inventory items (ids ignored).
+    - **ids**: List of kode_barang to delete (used when delete_all is false).
+    """
+    return await service.bulk_delete(ids=request_data.ids, delete_all=request_data.delete_all)

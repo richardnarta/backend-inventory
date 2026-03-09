@@ -111,14 +111,16 @@ class PurchaseTransactionService:
             subtotal = item_request.quantity * item_request.price_per_unit
             total_amount += subtotal
             
-            # Create item with inventory's quantity_unit
+            # Create item with inventory's quantity_unit and snapshots
             item_data = {
                 "purchase_transaction_id": transaction_header.id,
                 "inventory_id": item_request.inventory_id,
                 "quantity": item_request.quantity,
                 "quantity_unit": inventory_item.quantity_unit,  # Use inventory's unit
                 "price_per_unit": item_request.price_per_unit,
-                "subtotal": subtotal
+                "subtotal": subtotal,
+                "item_code_snapshot": inventory_item.kode_barang,
+                "item_name_snapshot": inventory_item.nama_barang
             }
             await self.pt_repo.create_item(item_data)
             
@@ -203,14 +205,16 @@ class PurchaseTransactionService:
                 subtotal = item_request.quantity * item_request.price_per_unit
                 total_amount += subtotal
                 
-                # Create item
+                # Create item with snapshots
                 item_data = {
                     "purchase_transaction_id": pt_id,
                     "inventory_id": item_request.inventory_id,
                     "quantity": item_request.quantity,
                     "quantity_unit": inventory_item.quantity_unit,
                     "price_per_unit": item_request.price_per_unit,
-                    "subtotal": subtotal
+                    "subtotal": subtotal,
+                    "item_code_snapshot": inventory_item.kode_barang,
+                    "item_name_snapshot": inventory_item.nama_barang
                 }
                 await self.pt_repo.create_item(item_data)
                 
@@ -271,3 +275,31 @@ class PurchaseTransactionService:
         return BaseSingleResponse(
             message=f"Berhasil menghapus transaksi pembelian dengan id {pt_id} dan rollback stok untuk {len(db_transaction.items)} item(s)."
         )
+
+    async def bulk_delete(self, ids: Optional[list], delete_all: bool) -> BaseSingleResponse:
+        """Bulk delete purchase transactions, applying stock rollback for each."""
+        if delete_all:
+            all_items, _ = await self.pt_repo.get_all(page=1, limit=999999)
+            deleted_count = 0
+            for item in all_items:
+                await self.delete(pt_id=item.id)
+                deleted_count += 1
+            return BaseSingleResponse(
+                message=f"Berhasil menghapus semua {deleted_count} transaksi pembelian dan rollback stok."
+            )
+        elif ids:
+            deleted_count = 0
+            not_found = []
+            for pt_id in ids:
+                transaction = await self.pt_repo.get_by_id(pt_id=pt_id)
+                if transaction:
+                    await self.delete(pt_id=pt_id)
+                    deleted_count += 1
+                else:
+                    not_found.append(str(pt_id))
+            msg = f"Berhasil menghapus {deleted_count} transaksi pembelian dan rollback stok."
+            if not_found:
+                msg += f" Tidak ditemukan id: {', '.join(not_found)}."
+            return BaseSingleResponse(message=msg)
+        else:
+            raise HTTPException(status_code=400, detail="Harap berikan ids atau set delete_all=true.")

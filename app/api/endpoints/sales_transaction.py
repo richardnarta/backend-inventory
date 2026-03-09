@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import date
 from fastapi import APIRouter, Depends, status, Query
+from pydantic import BaseModel
 
 # --- Dependency Imports ---
 from app.service.sales_transaction import SalesTransactionService
@@ -17,6 +18,12 @@ from app.schema.sales_transaction.response import (
 )
 from app.schema.base_response import BaseSingleResponse
 from app.di.deps import get_current_user, require_write_access
+
+# --- Request Body Schema for Bulk Delete ---
+class BulkDeleteIntRequest(BaseModel):
+    ids: Optional[List[int]] = None
+    delete_all: bool = False
+
 
 # --- Router Initialization ---
 router = APIRouter(
@@ -105,3 +112,17 @@ async def delete_sales_transaction(
     Automatically rollbacks inventory stock for all items.
     """
     return await service.delete(st_id=st_id)
+
+@router.delete("/bulk/delete", response_model=BaseSingleResponse, dependencies=[Depends(require_write_access)])
+async def bulk_delete_sales_transactions(
+    request_data: BulkDeleteIntRequest,
+    service: SalesTransactionService = Depends(get_sales_transaction_service),
+):
+    """
+    ### Bulk Delete Sales Transactions.
+
+    Delete multiple sales transactions at once. Stock rollback is applied for each.
+    - **delete_all**: If true, deletes ALL sales transactions.
+    - **ids**: List of transaction IDs to delete.
+    """
+    return await service.bulk_delete(ids=request_data.ids, delete_all=request_data.delete_all)

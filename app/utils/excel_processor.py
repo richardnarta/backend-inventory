@@ -9,41 +9,56 @@ import io
 
 # Mapping from Excel unit values to system QuantityUnit enum
 UNIT_MAPPING = {
-    "DUS": "Dus",
-    "BTG": "Batang",
+    # UPPERCASE ABBREVIATIONS
     "BAL": "Bal",
-    "BH": "Pcs",
-    "PCS": "Pcs",
-    "dus": "Dus",
-    "lbr": "Lembar",
-    "LBR": "Lembar",
-    "LEMBAR": "Lembar",
-    "ls": "Lusin",
-    "LS": "Lusin",
-    "LUSIN": "Lusin",
-    "m": "Meter",
-    "M": "Meter",
-    "METER": "Meter",
-    "pak": "Pak",
-    "PAK": "Pak",
-    "ons": "Ons",
-    "ONS": "Ons",
-    "sak": "Sak",
-    "SAK": "Sak",
-    "BATANG": "Batang",
-    "btg": "Batang",
-    "bal": "Bal",
-    "pcs": "Pcs",
-    "bh": "Pcs",
-    "lembar": "Lembar",
-    "lusin": "Lusin",
-    "meter": "Meter",
-    "kotak": "Kotak",
-    "KOTAK": "Kotak",
-    "kg": "Kilogram",
+    "BH": "Buah",
+    "BTG": "Batang",
+    "DUS": "Dus",
+    "GL": "Gulung",
     "KG": "Kilogram",
-    "KILOGRAM": "Kilogram",
-    "kilogram": "Kilogram",
+    "KTK": "Kotak",
+    "LBR": "Lembar",
+    "LS": "Lusin",
+    "M": "Meter",
+    "ONS": "Ons",
+    "PAK": "Pak",
+    "PCS": "Pcs",
+    "PS": "Pasang",
+    "SAK": "Sak",
+    
+    # LOWERCASE ABBREVIATIONS
+    "bal": "Bal",
+    "bh": "Buah",
+    "btg": "Batang",
+    "dus": "Dus",
+    "gl": "Gulung",
+    "kg": "Kilogram",
+    "ktk": "Kotak",
+    "lbr": "Lembar",
+    "ls": "Lusin",
+    "m": "Meter",
+    "ons": "Ons",
+    "pak": "Pak",
+    "pcs": "Pcs",
+    "ps": "Pasang",
+    "sak": "Sak",
+    
+    # MIXED/FULL NAMES (Safeguard)
+    "Bal": "Bal",
+    "Buah": "Buah",
+    "Batang": "Batang",
+    "Dus": "Dus",
+    "Gulung": "Gulung",
+    "Kilogram": "Kilogram",
+    "Kotak": "Kotak",
+    "Lembar": "Lembar",
+    "Lusin": "Lusin",
+    "Meter": "Meter",
+    "Ons": "Ons",
+    "Pak": "Pak",
+    "Pcs": "Pcs",
+    "Pasang": "Pasang",
+    "Sak": "Sak"
 }
 
 # Expected column headers (for validation)
@@ -58,7 +73,7 @@ EXPECTED_COLUMNS = {
 }
 
 
-async def process_excel_file(file: UploadFile) -> Tuple[List[Dict[str, Any]], int, List[str]]:
+async def process_excel_file(file: UploadFile) -> Tuple[List[Dict[str, Any]], int, List[str], List[dict]]:
     """
     Process uploaded Excel file and extract inventory data.
     
@@ -66,7 +81,7 @@ async def process_excel_file(file: UploadFile) -> Tuple[List[Dict[str, Any]], in
         file: Uploaded Excel file
         
     Returns:
-        Tuple of (valid_items, skipped_count, new_units_added)
+        Tuple of (valid_items, skipped_count, new_units_added, errors)
         
     Raises:
         HTTPException: If file format is invalid
@@ -90,6 +105,7 @@ async def process_excel_file(file: UploadFile) -> Tuple[List[Dict[str, Any]], in
         valid_items = []
         skipped_count = 0
         new_units = set()
+        errors = []
         
         # Process data starting from row 3
         for row_idx in range(3, sheet.max_row + 1):
@@ -110,6 +126,7 @@ async def process_excel_file(file: UploadFile) -> Tuple[List[Dict[str, Any]], in
                 # Skip if nama_barang is empty
                 if not nama_barang:
                     skipped_count += 1
+                    errors.append({"row": row_idx, "kode_barang": kode_barang, "reason": "Nama barang kosong."})
                     continue
                 
                 # Map quantity_unit
@@ -119,12 +136,11 @@ async def process_excel_file(file: UploadFile) -> Tuple[List[Dict[str, Any]], in
                 # Skip row if unit not mapped
                 if not quantity_unit:
                     skipped_count += 1
+                    errors.append({"row": row_idx, "kode_barang": kode_barang, "reason": f"Satuan '{quantity_unit_str}' tidak dikenal."})
                     continue
                 
-                # Track new units that might not be in the enum yet
-                if quantity_unit in ["Lusin", "Ons"]:
-                    new_units.add(quantity_unit)
-                
+                # (no longer tracking new units — all valid units are in the enum)
+
                 # Prepare item data
                 item_data = {
                     "kode_barang": str(kode_barang).strip().replace(' ', '_').upper(),
@@ -142,9 +158,10 @@ async def process_excel_file(file: UploadFile) -> Tuple[List[Dict[str, Any]], in
             except Exception as e:
                 # Skip rows with parsing errors
                 skipped_count += 1
+                errors.append({"row": row_idx, "reason": f"Parsing error: {str(e)}"})
                 continue
         
-        return valid_items, skipped_count, list(new_units)
+        return valid_items, skipped_count, list(new_units), errors
         
     except Exception as e:
         raise HTTPException(

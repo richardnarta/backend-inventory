@@ -102,3 +102,31 @@ class SupplierService:
         return BaseSingleResponse(
             message=f"Berhasil menghapus data supplier dengan id {supplier_id}."
         )
+
+    async def bulk_delete(self, ids: Optional[list], delete_all: bool) -> BaseSingleResponse:
+        """Bulk delete suppliers by list of ids or delete all"""
+        if delete_all:
+            all_items, _ = await self.supplier_repo.get_all(name=None, page=1, limit=999999)
+            deleted_count = 0
+            for item in all_items:
+                await self.supplier_repo.delete(db_supplier=item)
+                deleted_count += 1
+            return BaseSingleResponse(
+                message=f"Berhasil menghapus semua {deleted_count} data supplier."
+            )
+        elif ids:
+            deleted_count = 0
+            not_found = []
+            for supplier_id in ids:
+                item = await self.supplier_repo.get_by_id(supplier_id=supplier_id)
+                if item:
+                    await self.supplier_repo.delete(db_supplier=item)
+                    deleted_count += 1
+                else:
+                    not_found.append(str(supplier_id))
+            msg = f"Berhasil menghapus {deleted_count} data supplier."
+            if not_found:
+                msg += f" Tidak ditemukan id: {', '.join(not_found)}."
+            return BaseSingleResponse(message=msg)
+        else:
+            raise HTTPException(status_code=400, detail="Harap berikan ids atau set delete_all=true.")

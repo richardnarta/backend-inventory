@@ -15,6 +15,8 @@ class PurchaseTransactionItemData(BaseModel):
     quantity_unit: str
     price_per_unit: float
     subtotal: float
+    item_code_snapshot: Optional[str] = None
+    item_name_snapshot: Optional[str] = None
     inventory: Optional[InventoryData] = None
 
     class Config:

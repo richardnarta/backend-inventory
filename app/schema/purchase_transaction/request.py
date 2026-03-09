@@ -11,7 +11,7 @@ class PurchaseTransactionItemRequest(BaseModel):
 class PurchaseTransactionCreateRequest(BaseModel):
     """Schema for creating a new purchase transaction with multiple items"""
     transaction_date: datetime = Field(description="Transaction date and time")
-    supplier_id: Optional[int] = Field(None, description="Supplier ID (optional)")
+    supplier_id: int = Field(description="Supplier ID (required)")
     notes: Optional[str] = Field(None, description="Transaction notes or remarks")
     items: List[PurchaseTransactionItemRequest] = Field(description="List of items in this transaction", min_length=1)
 

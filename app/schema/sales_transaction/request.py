@@ -11,7 +11,7 @@ class SalesTransactionItemRequest(BaseModel):
 class SalesTransactionCreateRequest(BaseModel):
     """Schema for creating a new sales transaction with multiple items"""
     transaction_date: datetime = Field(description="Transaction date and time")
-    buyer_id: Optional[int] = Field(None, description="Buyer ID (optional)")
+    buyer_id: int = Field(description="Buyer ID (required)")
     notes: Optional[str] = Field(None, description="Transaction notes or remarks")
     items: List[SalesTransactionItemRequest] = Field(description="List of items in this transaction", min_length=1)
 
